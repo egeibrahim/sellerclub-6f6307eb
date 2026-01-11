@@ -41,6 +41,9 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            {/* Redirect /listing to /inventory */}
+            <Route path="/listing" element={<Navigate to="/inventory" replace />} />
+            <Route path="/listings" element={<Navigate to="/inventory" replace />} />
             <Route
               path="/inventory"
               element={
