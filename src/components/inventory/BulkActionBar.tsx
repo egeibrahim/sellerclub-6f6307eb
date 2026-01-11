@@ -8,19 +8,37 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useProducts } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { X, DollarSign, Package, Trash2, Send, ImagePlus, Loader2, Edit } from "lucide-react";
+import { 
+  X, DollarSign, Package, Trash2, Send, ImagePlus, Loader2, Edit, 
+  Copy, Archive, Download, ChevronDown, MinusCircle 
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface BulkActionBarProps {
   selectedCount: number;
   selectedIds: string[];
   onClear: () => void;
+  onCopy?: () => void;
+  currentStatus?: string;
 }
 
-export function BulkActionBar({ selectedCount, selectedIds, onClear }: BulkActionBarProps) {
+export function BulkActionBar({ 
+  selectedCount, 
+  selectedIds, 
+  onClear,
+  onCopy,
+  currentStatus = 'active'
+}: BulkActionBarProps) {
   const navigate = useNavigate();
   const { bulkDelete, bulkUpdatePrice, bulkUpdateStock, bulkAddImages } = useProducts();
   const { user } = useAuth();
@@ -28,6 +46,7 @@ export function BulkActionBar({ selectedCount, selectedIds, onClear }: BulkActio
   const [isPercentage, setIsPercentage] = useState(true);
   const [stockAdjustment, setStockAdjustment] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBulkEdit = () => {
@@ -61,6 +80,85 @@ export function BulkActionBar({ selectedCount, selectedIds, onClear }: BulkActio
     if (confirm(`Are you sure you want to delete ${selectedCount} products?`)) {
       bulkDelete.mutate(selectedIds);
       onClear();
+    }
+  };
+
+  const handleInactive = async () => {
+    try {
+      const { error } = await supabase
+        .from('marketplace_listings')
+        .update({ status: 'inactive' })
+        .in('id', selectedIds);
+
+      if (error) throw error;
+
+      toast.success(`${selectedCount} ürün pasif yapıldı`);
+      onClear();
+    } catch (error: any) {
+      toast.error(error.message || 'Hata oluştu');
+    }
+  };
+
+  const handleArchive = async () => {
+    try {
+      const { error } = await supabase
+        .from('marketplace_listings')
+        .update({ status: 'archived' })
+        .in('id', selectedIds);
+
+      if (error) throw error;
+
+      toast.success(`${selectedCount} ürün arşivlendi`);
+      onClear();
+    } catch (error: any) {
+      toast.error(error.message || 'Hata oluştu');
+    }
+  };
+
+  const handleExport = async (format: 'csv' | 'excel') => {
+    setIsExporting(true);
+    try {
+      const { data, error } = await supabase
+        .from('marketplace_listings')
+        .select('*')
+        .in('id', selectedIds);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        toast.error('Dışa aktarılacak ürün bulunamadı');
+        return;
+      }
+
+      // Convert to CSV
+      const headers = ['ID', 'Title', 'Description', 'Price', 'Status', 'Platform', 'Created At'];
+      const rows = data.map(item => [
+        item.id,
+        item.title,
+        item.description || '',
+        item.price || '',
+        item.status || '',
+        item.platform,
+        item.created_at,
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+
+      // Download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `listings_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+
+      toast.success(`${selectedCount} ürün dışa aktarıldı`);
+    } catch (error: any) {
+      toast.error(error.message || 'Dışa aktarma hatası');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -121,12 +219,23 @@ export function BulkActionBar({ selectedCount, selectedIds, onClear }: BulkActio
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 ml-30 z-50">
-      <div className="bg-foreground text-background px-4 py-3 flex items-center gap-4 shadow-lg">
+      <div className="bg-foreground text-background px-4 py-3 flex items-center gap-3 shadow-lg rounded-lg">
         <span className="text-sm font-medium">
           {selectedCount} selected
         </span>
 
         <div className="h-4 w-px bg-background/20" />
+
+        {/* Copy Dropdown */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-background hover:bg-background/10 gap-2"
+          onClick={onCopy}
+        >
+          <Copy className="h-4 w-4" />
+          Copy
+        </Button>
 
         {/* Price Update */}
         <Popover>
@@ -137,7 +246,7 @@ export function BulkActionBar({ selectedCount, selectedIds, onClear }: BulkActio
               className="text-background hover:bg-background/10 gap-2"
             >
               <DollarSign className="h-4 w-4" />
-              Update Price
+              Price
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-64" align="center">
@@ -185,7 +294,7 @@ export function BulkActionBar({ selectedCount, selectedIds, onClear }: BulkActio
               className="text-background hover:bg-background/10 gap-2"
             >
               <Package className="h-4 w-4" />
-              Update Stock
+              Stock
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-64" align="center">
@@ -215,18 +324,32 @@ export function BulkActionBar({ selectedCount, selectedIds, onClear }: BulkActio
           onClick={handleBulkEdit}
         >
           <Edit className="h-4 w-4" />
-          Bulk Edit
+          Edit
         </Button>
 
-        {/* Push to Trendyol */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-background hover:bg-background/10 gap-2"
-        >
-          <Send className="h-4 w-4" />
-          Push to Trendyol
-        </Button>
+        {/* Export Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-background hover:bg-background/10 gap-1"
+              disabled={isExporting}
+            >
+              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Export
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => handleExport('csv')}>
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('excel')}>
+              Export as Excel
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Bulk Image Upload */}
         <Button
@@ -241,7 +364,7 @@ export function BulkActionBar({ selectedCount, selectedIds, onClear }: BulkActio
           ) : (
             <ImagePlus className="h-4 w-4" />
           )}
-          Add Images
+          Images
         </Button>
 
         <input
@@ -254,6 +377,28 @@ export function BulkActionBar({ selectedCount, selectedIds, onClear }: BulkActio
         />
 
         <div className="h-4 w-px bg-background/20" />
+
+        {/* Archive */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-background hover:bg-background/10 gap-2"
+          onClick={handleArchive}
+        >
+          <Archive className="h-4 w-4" />
+          Archive
+        </Button>
+
+        {/* Inactive */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-yellow-400 hover:bg-yellow-400/10 gap-2"
+          onClick={handleInactive}
+        >
+          <MinusCircle className="h-4 w-4" />
+          Inactive
+        </Button>
 
         {/* Delete */}
         <Button

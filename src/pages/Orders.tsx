@@ -59,7 +59,7 @@ export default function Orders() {
   };
 
   return (
-    <Layout>
+    <Layout showHeader={false}>
       <Header title="Siparişler" />
 
       <div className="p-6 space-y-6">

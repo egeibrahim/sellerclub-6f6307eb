@@ -3,8 +3,8 @@ import { ProductGrid } from "@/components/inventory/ProductGrid";
 
 export default function Inventory() {
   return (
-    <Layout>
-      <div className="h-[calc(100vh)]">
+    <Layout showHeader={true}>
+      <div className="h-[calc(100vh-80px)]">
         <ProductGrid />
       </div>
     </Layout>

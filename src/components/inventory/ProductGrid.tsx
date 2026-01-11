@@ -18,10 +18,13 @@ import {
   Copy,
   GitMerge,
   ExternalLink,
+  Send,
 } from "lucide-react";
 import { BulkActionBar } from "./BulkActionBar";
 import { ProductSidePanel } from "./ProductSidePanel";
 import { ShopRefreshDialog } from "./ShopRefreshDialog";
+import { CopyListingDialog } from "./CopyListingDialog";
+import { PublishDropdown } from "./PublishDropdown";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -117,6 +120,18 @@ export function ProductGrid() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hoveredProductId, setHoveredProductId] = useState<string | null>(null);
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
+
+  // Get shop connections for copy dialog
+  const { shops } = useShop();
+  const shopConnections = shops.filter(s => s.id !== 'master').map(shop => ({
+    id: shop.id,
+    shop_name: shop.name,
+    platform: shop.platform,
+    shop_icon: shop.icon,
+    shop_color: shop.color,
+    is_connected: shop.isConnected,
+  }));
   const itemsPerPage = 25;
 
   // Filter products by status and search query
@@ -574,8 +589,19 @@ export function ProductGrid() {
           selectedCount={selectedIds.size}
           selectedIds={Array.from(selectedIds)}
           onClear={clearSelection}
+          onCopy={() => setShowCopyDialog(true)}
+          currentStatus={statusFilter}
         />
       )}
+
+      {/* Copy Dialog */}
+      <CopyListingDialog
+        open={showCopyDialog}
+        onOpenChange={setShowCopyDialog}
+        selectedListings={Array.from(selectedIds)}
+        shops={shopConnections}
+        currentShopId={selectedShop.id !== 'master' ? selectedShop.id : null}
+      />
 
       {/* Side Panel */}
       {selectedProduct && (

@@ -4,7 +4,7 @@ import { PricingRulesList } from "@/components/pricing/PricingRulesList";
 
 export default function Pricing() {
   return (
-    <Layout>
+    <Layout showHeader={false}>
       <Header title="Fiyat Yönetimi" />
       <div className="p-6">
         <PricingRulesList />
