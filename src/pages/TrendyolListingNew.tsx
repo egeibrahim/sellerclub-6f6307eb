@@ -38,13 +38,23 @@ const tabs = [
   "Kargo",
 ];
 
+// Static categories for Trendyol (since marketplace_categories table doesn't exist)
+const staticCategories = [
+  { id: "1", name: "Elektronik", parent_id: null },
+  { id: "2", name: "Moda", parent_id: null },
+  { id: "3", name: "Ev & Yaşam", parent_id: null },
+  { id: "4", name: "Spor & Outdoor", parent_id: null },
+  { id: "1-1", name: "Telefon", parent_id: "1" },
+  { id: "1-2", name: "Bilgisayar", parent_id: "1" },
+  { id: "2-1", name: "Kadın Giyim", parent_id: "2" },
+  { id: "2-2", name: "Erkek Giyim", parent_id: "2" },
+];
+
 interface TrendyolCategory {
   id: string;
-  remote_id: string;
   name: string;
-  full_path: string | null;
   parent_id: string | null;
-  marketplace_id: string;
+  full_path?: string;
 }
 
 interface CategoryAttribute {
@@ -79,10 +89,11 @@ export default function TrendyolListingNew() {
   const [vatRate, setVatRate] = useState("18");
 
   // Category state
-  const [categories, setCategories] = useState<TrendyolCategory[]>([]);
+  const [categories, setCategories] = useState<TrendyolCategory[]>(
+    staticCategories.filter(c => c.parent_id === null)
+  );
   const [categoryPath, setCategoryPath] = useState<TrendyolCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<TrendyolCategory | null>(null);
-  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
@@ -91,51 +102,11 @@ export default function TrendyolListingNew() {
   const [attributeValues, setAttributeValues] = useState<Record<number, string | number>>({});
   const [loadingAttributes, setLoadingAttributes] = useState(false);
 
-  // Database'den Trendyol kategorilerini yükle
-  const fetchCategories = async (parentId: string | null = null) => {
-    setLoadingCategories(true);
-    setCategoryError(null);
-    
-    try {
-      let query = supabase
-        .from('marketplace_categories')
-        .select('*')
-        .eq('marketplace_id', 'trendyol');
-      
-      if (parentId) {
-        query = query.eq('parent_id', parentId);
-      } else {
-        query = query.is('parent_id', null);
-      }
-      
-      const { data, error } = await query.order('name');
-
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        setCategories(data);
-        setCurrentParentId(parentId);
-      } else if (!parentId) {
-        setCategoryError('Kategoriler bulunamadı');
-      }
-    } catch (error) {
-      console.error('Category fetch error:', error);
-      setCategoryError(error instanceof Error ? error.message : 'Kategoriler yüklenemedi');
-      toast({
-        title: "Hata",
-        description: "Trendyol kategorileri yüklenemedi",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingCategories(false);
-    }
-  };
-
-  // Kategori attribute'larını yükle (API blocked, so use static attributes)
-  const fetchAttributes = async (categoryId: string) => {
+  // Load static attributes when category is selected
+  const fetchAttributes = (categoryId: string) => {
     setLoadingAttributes(true);
     
-    // Since Trendyol API is blocked by Cloudflare, use static common attributes
+    // Static common attributes
     const commonAttributes: CategoryAttribute[] = [
       {
         attribute: { id: 348, name: 'Renk' },
@@ -177,20 +148,14 @@ export default function TrendyolListingNew() {
     setLoadingAttributes(false);
   };
 
-  // Kategori seçildiğinde - check for subcategories
-  const handleCategorySelect = async (category: TrendyolCategory) => {
-    // Check if this category has subcategories
-    const { data: subCategories } = await supabase
-      .from('marketplace_categories')
-      .select('*')
-      .eq('marketplace_id', 'trendyol')
-      .eq('parent_id', category.id);
+  // Handle category selection
+  const handleCategorySelect = (category: TrendyolCategory) => {
+    const subCategories = staticCategories.filter(c => c.parent_id === category.id);
     
-    if (subCategories && subCategories.length > 0) {
+    if (subCategories.length > 0) {
       // Has subcategories, navigate into them
       setCategoryPath([...categoryPath, category]);
       setCategories(subCategories);
-      setCurrentParentId(category.id);
     } else {
       // No subcategories, this is a leaf category - select it
       setSelectedCategory(category);
@@ -200,7 +165,7 @@ export default function TrendyolListingNew() {
     }
   };
 
-  // Geri git
+  // Handle category back navigation
   const handleCategoryBack = () => {
     if (categoryPath.length > 0) {
       const newPath = [...categoryPath];
@@ -208,18 +173,83 @@ export default function TrendyolListingNew() {
       setCategoryPath(newPath);
       
       if (newPath.length === 0) {
-        fetchCategories(null);
+        setCategories(staticCategories.filter(c => c.parent_id === null));
       } else {
         const parentCategory = newPath[newPath.length - 1];
-        fetchCategories(parentCategory.id);
+        setCategories(staticCategories.filter(c => c.parent_id === parentCategory.id));
       }
     }
   };
 
-  // Sayfa yüklendiğinde kategorileri çek
-  useEffect(() => {
-    fetchCategories(null);
-  }, []);
+  const handlePublish = async (status: 'staging' | 'draft' | 'active') => {
+    if (!user) {
+      toast({
+        title: "Hata",
+        description: "Oturum açmanız gerekiyor",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!title.trim()) {
+      toast({
+        title: "Hata",
+        description: "Ürün başlığı zorunludur",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const listingData = {
+        title: title.trim(),
+        description: description.trim() || null,
+        price: parseFloat(salePrice) || parseFloat(listPrice) || 0,
+        status: status === 'active' ? 'active' : 'draft',
+        platform: 'trendyol',
+        user_id: user.id,
+        marketplace_data: {
+          sku: stockCode.trim() || null,
+          brand: brand.trim() || null,
+          barcode: barcode.trim() || null,
+          listPrice: parseFloat(listPrice) || 0,
+          quantity: parseInt(quantity) || 0,
+          vatRate: parseInt(vatRate) || 18,
+          categoryId: selectedCategory?.id || null,
+          attributes: attributeValues,
+        },
+      };
+
+      const { error } = await supabase
+        .from('marketplace_listings')
+        .insert(listingData);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: `Ürün ${status === 'active' ? 'yayınlandı' : 'taslak olarak kaydedildi'}`,
+      });
+      navigate('/inventory');
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast({
+        title: "Hata",
+        description: "Ürün kaydedilirken hata oluştu",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveAsProfile = () => {
+    toast({
+      title: "Bilgi",
+      description: "Profile kaydetme özelliği yakında eklenecek",
+    });
+  };
 
   const maxTitleLength = 100;
 
@@ -337,21 +367,9 @@ export default function TrendyolListingNew() {
                   Ürününüz için uygun kategoriyi seçin
                 </p>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => fetchCategories(null)}
-                disabled={loadingCategories}
-              >
-                {loadingCategories ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Kategorileri Güncelle"
-                )}
-              </Button>
             </div>
 
-            {/* Seçili kategori yolu */}
+            {/* Selected category path */}
             {categoryPath.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap p-3 bg-muted/50 rounded-sm">
                 <Button 
@@ -360,7 +378,7 @@ export default function TrendyolListingNew() {
                   onClick={() => {
                     setCategoryPath([]);
                     setSelectedCategory(null);
-                    fetchCategories(null);
+                    setCategories(staticCategories.filter(c => c.parent_id === null));
                   }}
                   className="h-7 px-2 text-xs"
                 >
@@ -384,7 +402,7 @@ export default function TrendyolListingNew() {
               </div>
             )}
 
-            {/* Seçili kategori göstergesi */}
+            {/* Selected category indicator */}
             {selectedCategory && (
               <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-sm">
                 <Check className="h-5 w-5 text-primary" />
@@ -398,7 +416,7 @@ export default function TrendyolListingNew() {
                     setSelectedCategory(null);
                     setCategoryPath([]);
                     setAttributes([]);
-                    fetchCategories(null);
+                    setCategories(staticCategories.filter(c => c.parent_id === null));
                   }}
                   className="ml-auto h-7"
                 >
@@ -407,7 +425,7 @@ export default function TrendyolListingNew() {
               </div>
             )}
 
-            {/* Hata durumu */}
+            {/* Error state */}
             {categoryError && (
               <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-sm">
                 <AlertCircle className="h-5 w-5 text-destructive" />
@@ -415,10 +433,10 @@ export default function TrendyolListingNew() {
               </div>
             )}
 
-            {/* Kategori listesi */}
+            {/* Category list */}
             {!selectedCategory && (
               <div className="border border-border rounded-sm">
-                {/* Geri butonu */}
+                {/* Back button */}
                 {categoryPath.length > 0 && (
                   <button
                     onClick={handleCategoryBack}
@@ -493,13 +511,10 @@ export default function TrendyolListingNew() {
                       <Select
                         value={attributeValues[attr.attribute.id]?.toString() || ""}
                         onValueChange={(value) => 
-                          setAttributeValues({
-                            ...attributeValues,
-                            [attr.attribute.id]: parseInt(value)
-                          })
+                          setAttributeValues(prev => ({ ...prev, [attr.attribute.id]: value }))
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue placeholder={`${attr.attribute.name} seçin`} />
                         </SelectTrigger>
                         <SelectContent>
@@ -513,11 +528,8 @@ export default function TrendyolListingNew() {
                     ) : (
                       <Input
                         value={attributeValues[attr.attribute.id]?.toString() || ""}
-                        onChange={(e) =>
-                          setAttributeValues({
-                            ...attributeValues,
-                            [attr.attribute.id]: e.target.value
-                          })
+                        onChange={(e) => 
+                          setAttributeValues(prev => ({ ...prev, [attr.attribute.id]: e.target.value }))
                         }
                         placeholder={`${attr.attribute.name} girin`}
                         className="h-11"
@@ -527,10 +539,7 @@ export default function TrendyolListingNew() {
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border border-dashed border-border rounded-sm">
-                <Check className="h-8 w-8 mb-2 text-primary" />
-                <p className="text-sm">Bu kategori için ek özellik gerekmiyor</p>
-              </div>
+              <p className="text-sm text-muted-foreground">Bu kategori için özellik tanımlanmamış.</p>
             )}
           </div>
         );
@@ -552,9 +561,6 @@ export default function TrendyolListingNew() {
                   placeholder="0.00"
                   className="h-11"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Üzeri çizili gösterilecek fiyat
-                </p>
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block">
@@ -567,9 +573,6 @@ export default function TrendyolListingNew() {
                   placeholder="0.00"
                   className="h-11"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Gerçek satış fiyatı
-                </p>
               </div>
             </div>
 
@@ -592,44 +595,18 @@ export default function TrendyolListingNew() {
                   KDV Oranı (%)
                 </Label>
                 <Select value={vatRate} onValueChange={setVatRate}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0">%0</SelectItem>
                     <SelectItem value="1">%1</SelectItem>
-                    <SelectItem value="10">%10</SelectItem>
+                    <SelectItem value="8">%8</SelectItem>
                     <SelectItem value="18">%18</SelectItem>
-                    <SelectItem value="20">%20</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-
-            {/* Fiyat özeti */}
-            {salePrice && (
-              <div className="p-4 bg-muted/50 rounded-sm">
-                <h3 className="text-sm font-medium mb-2">Fiyat Özeti</h3>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Liste Fiyatı:</span>
-                    <span className="line-through">₺{parseFloat(listPrice || "0").toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-medium">
-                    <span>Satış Fiyatı:</span>
-                    <span className="text-primary">₺{parseFloat(salePrice).toFixed(2)}</span>
-                  </div>
-                  {listPrice && parseFloat(listPrice) > parseFloat(salePrice) && (
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>İndirim:</span>
-                      <span>
-                        %{Math.round((1 - parseFloat(salePrice) / parseFloat(listPrice)) * 100)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         );
 
@@ -637,40 +614,9 @@ export default function TrendyolListingNew() {
         return (
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-foreground">Kargo Bilgileri</h2>
-
-            <div>
-              <Label className="text-sm font-medium mb-2 block">
-                Kargo Şirketi <span className="text-destructive">*</span>
-              </Label>
-              <Select defaultValue="17">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="17">Trendyol Express</SelectItem>
-                  <SelectItem value="4">Yurtiçi Kargo</SelectItem>
-                  <SelectItem value="10">Aras Kargo</SelectItem>
-                  <SelectItem value="6">MNG Kargo</SelectItem>
-                  <SelectItem value="19">Sürat Kargo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium mb-2 block">
-                Desi (İsteğe Bağlı)
-              </Label>
-              <Input
-                type="number"
-                placeholder="1"
-                defaultValue="1"
-                min="1"
-                className="h-11"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Boyutsal ağırlık hesaplaması için
-              </p>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Trendyol kargo ayarları mağaza hesabınızdan yönetilir.
+            </p>
           </div>
         );
 
@@ -679,143 +625,64 @@ export default function TrendyolListingNew() {
     }
   };
 
-  const handlePublish = async (status: "staging" | "draft" | "active") => {
-    // Validation
-    if (!title) {
-      toast({
-        title: "Eksik bilgi",
-        description: "Lütfen ürün başlığını girin",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!user) {
-      toast({
-        title: "Hata",
-        description: "Giriş yapmanız gerekiyor",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      // Map status to database status
-      const dbStatus = status === "active" ? "active" : "draft";
-
-      const { data, error } = await supabase
-        .from("products")
-        .insert({
-          title,
-          description,
-          sku: stockCode || barcode,
-          price: parseFloat(salePrice) || 0,
-          stock: parseInt(quantity) || 0,
-          brand,
-          status: dbStatus,
-          source: "trendyol",
-          user_id: user.id,
-          marketplace_category_id: selectedCategory?.id || null,
-          trendyol_synced: status === "active",
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      toast({
-        title: status === "active" ? "Ürün Yayınlandı!" : "Ürün Kaydedildi!",
-        description: status === "draft" 
-          ? "Ürün taslak olarak kaydedildi" 
-          : status === "staging"
-          ? "Ürün staging'e gönderildi"
-          : "Ürün başarıyla oluşturuldu ve yayınlandı",
-      });
-
-      navigate("/inventory");
-    } catch (error) {
-      console.error("Error saving product:", error);
-      toast({
-        title: "Hata",
-        description: "Ürün kaydedilirken hata oluştu",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveAsProfile = () => {
-    toast({
-      title: "Profile Kaydedildi",
-      description: "Bu ayarlar profil olarak kaydedildi",
-    });
-  };
-
   return (
     <Layout>
-      <div className="h-full flex flex-col pb-20">
+      <div className="h-full flex flex-col bg-background pb-20">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => navigate("/inventory")}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Geri
-            </Button>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-[#FF6000] rounded-sm flex items-center justify-center">
-                <span className="text-white font-bold text-xs">T</span>
+        <div className="border-b border-border bg-card px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => navigate(-1)}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-[#F27A1A] rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">T</span>
+                </div>
+                <h1 className="text-lg font-semibold">Trendyol Ürün Ekle</h1>
               </div>
-              <h1 className="text-lg font-semibold">Trendyol Ürün Oluştur</h1>
             </div>
+          </div>
+        </div>
+
+        {/* Tab navigation */}
+        <div className="border-b border-border bg-card px-6">
+          <div className="flex gap-1 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  "px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2",
+                  activeTab === tab
+                    ? "border-[#F27A1A] text-[#F27A1A]"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left: Tabs */}
-          <div className="w-64 border-r border-border bg-muted/30 overflow-y-auto">
-            <nav className="p-4 space-y-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={cn(
-                    "w-full text-left px-4 py-3 text-sm rounded-sm transition-colors",
-                    activeTab === tab
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : "text-foreground hover:bg-muted"
-                  )}
-                >
-                  {tab}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          {/* Right: Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-2xl">
-              {renderTabContent()}
-            </div>
+        <div className="flex-1 overflow-auto p-6">
+          <div className="max-w-2xl mx-auto">
+            {renderTabContent()}
           </div>
         </div>
-      </div>
 
-      {/* Footer */}
-      <ListingFooter
-        onSaveAsProfile={handleSaveAsProfile}
-        onPublish={handlePublish}
-        isLoading={isSaving}
-        shopName="trendyol"
-        primaryColor="#FF6000"
-      />
+        {/* Footer */}
+        <ListingFooter
+          onPublish={handlePublish}
+          onSaveAsProfile={handleSaveAsProfile}
+          isPublishing={isSaving}
+        />
+      </div>
     </Layout>
   );
 }

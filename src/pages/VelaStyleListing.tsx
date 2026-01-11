@@ -30,6 +30,7 @@ import {
   RefreshCcw,
   Copy,
   GripVertical,
+  X,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,17 +53,6 @@ const mainSections = [
   { id: "shipping", label: "Shipping" },
 ];
 
-// Variation sub-tabs
-const variationSubTabs = [
-  { id: "variations", label: "Variations" },
-  { id: "price", label: "Price" },
-  { id: "quantity", label: "Quantity" },
-  { id: "sku", label: "SKU" },
-  { id: "visibility", label: "Visibility" },
-  { id: "photos", label: "Photos" },
-  { id: "processing", label: "Processing" },
-];
-
 interface Variant {
   id: string;
   name: string;
@@ -81,24 +71,18 @@ interface VariantType {
   values: { id: string; name: string; colorCode?: string }[];
 }
 
-interface ConnectedShop {
+interface ShopConnection {
   id: string;
-  name: string;
-  marketplace: string;
-  logo?: string;
+  shop_name: string;
+  platform: string;
 }
 
-interface IkasProduct {
+interface MarketplaceListing {
   id: string;
   title: string;
   description: string | null;
-  price: number;
-  stock: number;
-  images: string[] | null;
-  brand: string | null;
-  color: string | null;
-  size: string | null;
-  sku: string | null;
+  price: number | null;
+  marketplace_data: Record<string, any> | null;
 }
 
 export default function VelaStyleListing() {
@@ -117,13 +101,13 @@ export default function VelaStyleListing() {
   const [selectedProfile, setSelectedProfile] = useState("");
   
   // Connected shops
-  const [connectedShops, setConnectedShops] = useState<ConnectedShop[]>([]);
-  const [selectedShop, setSelectedShop] = useState<ConnectedShop | null>(null);
+  const [connectedShops, setConnectedShops] = useState<ShopConnection[]>([]);
+  const [selectedShop, setSelectedShop] = useState<ShopConnection | null>(null);
   
-  // iKas Products
-  const [ikasProducts, setIkasProducts] = useState<IkasProduct[]>([]);
-  const [selectedIkasProduct, setSelectedIkasProduct] = useState<string>("");
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  // Listings from marketplace_listings
+  const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  const [selectedListing, setSelectedListing] = useState<string>("");
+  const [isLoadingListings, setIsLoadingListings] = useState(false);
   
   // Form state
   const [title, setTitle] = useState("");
@@ -145,29 +129,16 @@ export default function VelaStyleListing() {
   const [secondaryColor, setSecondaryColor] = useState("");
   const [materials, setMaterials] = useState("");
   
-  // Category cascade
-  const [categoryLevel1, setCategoryLevel1] = useState("");
-  const [categoryLevel2, setCategoryLevel2] = useState("");
-  const [categoryLevel3, setCategoryLevel3] = useState("");
-  const [categoryLevel4, setCategoryLevel4] = useState("");
-  
   // Variations
   const [variantTypes, setVariantTypes] = useState<VariantType[]>([
     { id: "color", name: "Primary color", values: [] },
     { id: "size", name: "size", values: [] },
   ]);
   const [variants, setVariants] = useState<Variant[]>([]);
-  const [individualPrice, setIndividualPrice] = useState(false);
-  const [individualQuantity, setIndividualQuantity] = useState(false);
-  
-  // New option inputs for variations
   const [newColorOption, setNewColorOption] = useState("");
   const [newSizeOption, setNewSizeOption] = useState("");
   const [colorError, setColorError] = useState("");
   const [sizeError, setSizeError] = useState("");
-  
-  // Renewal options
-  const [renewalOption, setRenewalOption] = useState<"automatic" | "manual">("automatic");
   
   // Personalization
   const [personalizationEnabled, setPersonalizationEnabled] = useState(false);
@@ -179,23 +150,23 @@ export default function VelaStyleListing() {
   const maxTitleLength = 140;
   const maxTagCount = 13;
 
-  // Load connected shops and iKas products
+  // Load connected shops and listings
   useEffect(() => {
-    const loadShopsAndProducts = async () => {
+    const loadShopsAndListings = async () => {
       if (!user) return;
       
       // Load connected shops
       const { data: shopsData } = await supabase
-        .from('marketplace_connections')
-        .select('id, marketplace, store_name, is_active')
+        .from('shop_connections')
+        .select('id, platform, shop_name, is_connected')
         .eq('user_id', user.id)
-        .eq('is_active', true);
+        .eq('is_connected', true);
       
       if (shopsData) {
         const shops = shopsData.map(conn => ({
           id: conn.id,
-          name: conn.store_name || conn.marketplace,
-          marketplace: conn.marketplace,
+          shop_name: conn.shop_name || conn.platform,
+          platform: conn.platform,
         }));
         setConnectedShops(shops);
         if (shops.length > 0) {
@@ -203,60 +174,42 @@ export default function VelaStyleListing() {
         }
       }
       
-      // Load iKas synced products
-      setIsLoadingProducts(true);
-      const { data: productsData } = await supabase
-        .from('products')
-        .select('id, title, description, price, stock, images, brand, color, size, sku')
+      // Load listings
+      setIsLoadingListings(true);
+      const { data: listingsData } = await supabase
+        .from('marketplace_listings')
+        .select('id, title, description, price, marketplace_data')
         .eq('user_id', user.id)
-        .eq('source', 'ikas')
         .order('title', { ascending: true });
       
-      if (productsData) {
-        setIkasProducts(productsData as IkasProduct[]);
+      if (listingsData) {
+        setListings(listingsData.map(l => ({
+          ...l,
+          marketplace_data: l.marketplace_data as Record<string, any> || null,
+        })));
       }
-      setIsLoadingProducts(false);
+      setIsLoadingListings(false);
     };
     
-    loadShopsAndProducts();
+    loadShopsAndListings();
   }, [user]);
 
-  // Load selected iKas product data into form
-  const loadIkasProductToForm = (productId: string) => {
-    const product = ikasProducts.find(p => p.id === productId);
-    if (!product) return;
+  // Load selected listing data into form
+  const loadListingToForm = (listingId: string) => {
+    const listing = listings.find(l => l.id === listingId);
+    if (!listing) return;
     
-    setSelectedIkasProduct(productId);
-    setTitle(product.title || '');
-    setDescription(product.description || '');
-    setPrice(product.price?.toString() || '');
-    setQuantity(product.stock?.toString() || '0');
-    setImages(product.images || []);
-    setPrimaryColor(product.color || '');
+    setSelectedListing(listingId);
+    setTitle(listing.title || '');
+    setDescription(listing.description || '');
+    setPrice(listing.price?.toString() || '');
     
-    // Generate variants from product data
-    const productVariants: Variant[] = [];
-    if (product.size) {
-      const sizes = product.size.split(',').map(s => s.trim());
-      sizes.forEach((size, idx) => {
-        productVariants.push({
-          id: `var-${idx}`,
-          name: `${product.title} - ${size}`,
-          price: product.price || 0,
-          stock: Math.floor((product.stock || 0) / sizes.length),
-          isActive: true,
-          images: product.images || [],
-          size: size,
-          sku: product.sku || undefined,
-        });
-      });
-    }
+    const data = listing.marketplace_data || {};
+    setImages(data.images || []);
+    setPrimaryColor(data.color || '');
+    setQuantity(data.quantity?.toString() || '0');
     
-    if (productVariants.length > 0) {
-      setVariants(productVariants);
-    }
-    
-    toast.success(`"${product.title}" yüklendi`);
+    toast.success(`"${listing.title}" yüklendi`);
   };
 
   // Load product data if editing via URL param
@@ -266,20 +219,21 @@ export default function VelaStyleListing() {
       
       setIsLoading(true);
       try {
-        const { data: product } = await supabase
-          .from('products')
+        const { data: listing } = await supabase
+          .from('marketplace_listings')
           .select('*')
           .eq('id', productId)
           .eq('user_id', user.id)
           .maybeSingle();
         
-        if (product) {
-          setTitle(product.title || '');
-          setDescription(product.description || '');
-          setPrice(product.price?.toString() || '');
-          setQuantity(product.stock?.toString() || '0');
-          setImages(product.images || []);
-          setPrimaryColor(product.color || '');
+        if (listing) {
+          setTitle(listing.title || '');
+          setDescription(listing.description || '');
+          setPrice(listing.price?.toString() || '');
+          
+          const data = listing.marketplace_data as Record<string, any> || {};
+          setImages(data.images || []);
+          setPrimaryColor(data.color || '');
         }
       } catch (error) {
         console.error('Error loading product:', error);
@@ -314,20 +268,6 @@ export default function VelaStyleListing() {
     setTags(tags.filter((_, i) => i !== index));
   };
 
-  // Handle variant visibility toggle
-  const toggleVariantVisibility = (variantId: string) => {
-    setVariants(variants.map(v => 
-      v.id === variantId ? { ...v, isActive: !v.isActive } : v
-    ));
-  };
-
-  // Handle variant price change
-  const updateVariantPrice = (variantId: string, newPrice: string) => {
-    setVariants(variants.map(v => 
-      v.id === variantId ? { ...v, price: parseFloat(newPrice) || 0 } : v
-    ));
-  };
-
   // Add color option
   const handleAddColorOption = () => {
     const trimmed = newColorOption.trim();
@@ -346,9 +286,6 @@ export default function VelaStyleListing() {
     ));
     setNewColorOption("");
     setColorError("");
-    
-    // Generate variants when we have values in both types
-    generateVariants();
   };
 
   // Add size option
@@ -369,9 +306,6 @@ export default function VelaStyleListing() {
     ));
     setNewSizeOption("");
     setSizeError("");
-    
-    // Generate variants when we have values in both types
-    generateVariants();
   };
 
   // Remove variant option
@@ -381,62 +315,6 @@ export default function VelaStyleListing() {
         ? { ...vt, values: vt.values.filter(v => v.id !== valueId) }
         : vt
     ));
-    // Regenerate variants after removal
-    setTimeout(generateVariants, 0);
-  };
-
-  // Generate variant combinations from variantTypes
-  const generateVariants = () => {
-    const colorType = variantTypes.find(vt => vt.id === 'color');
-    const sizeType = variantTypes.find(vt => vt.id === 'size');
-    
-    const colors = colorType?.values || [];
-    const sizes = sizeType?.values || [];
-    
-    const newVariants: Variant[] = [];
-    
-    if (colors.length > 0 && sizes.length > 0) {
-      colors.forEach(color => {
-        sizes.forEach(size => {
-          newVariants.push({
-            id: `${color.id}-${size.id}`,
-            name: color.name,
-            size: size.name,
-            price: parseFloat(price) || 0,
-            stock: parseInt(quantity) || 0,
-            isActive: true,
-            images: [],
-            colorCode: color.colorCode,
-          });
-        });
-      });
-    } else if (colors.length > 0) {
-      colors.forEach(color => {
-        newVariants.push({
-          id: color.id,
-          name: color.name,
-          price: parseFloat(price) || 0,
-          stock: parseInt(quantity) || 0,
-          isActive: true,
-          images: [],
-          colorCode: color.colorCode,
-        });
-      });
-    } else if (sizes.length > 0) {
-      sizes.forEach(size => {
-        newVariants.push({
-          id: size.id,
-          name: title || 'Product',
-          size: size.name,
-          price: parseFloat(price) || 0,
-          stock: parseInt(quantity) || 0,
-          isActive: true,
-          images: [],
-        });
-      });
-    }
-    
-    setVariants(newVariants);
   };
 
   // Handle publish
@@ -452,25 +330,31 @@ export default function VelaStyleListing() {
 
     setIsSaving(true);
     try {
-      const productData = {
+      const listingData = {
         title,
         description,
         price: parseFloat(price) || 0,
-        stock: parseInt(quantity) || 0,
         status: "active",
-        source: selectedShop?.marketplace || "manual",
+        platform: selectedShop?.platform || "manual",
         user_id: user.id,
-        images,
+        shop_connection_id: selectedShop?.id || null,
+        marketplace_data: {
+          images,
+          color: primaryColor,
+          quantity: parseInt(quantity) || 0,
+          tags,
+          materials,
+        },
       };
 
       if (productId) {
         await supabase
-          .from("products")
-          .update(productData)
+          .from("marketplace_listings")
+          .update(listingData)
           .eq('id', productId)
           .eq('user_id', user.id);
       } else {
-        await supabase.from("products").insert(productData);
+        await supabase.from("marketplace_listings").insert(listingData);
       }
 
       toast.success("Product published!");
@@ -484,7 +368,47 @@ export default function VelaStyleListing() {
   };
 
   const handleSaveAsDraft = async () => {
-    toast.success("Saved as draft");
+    if (!user) {
+      toast.error("Please log in");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const listingData = {
+        title: title || "Untitled Draft",
+        description,
+        price: parseFloat(price) || 0,
+        status: "draft",
+        platform: selectedShop?.platform || "manual",
+        user_id: user.id,
+        shop_connection_id: selectedShop?.id || null,
+        marketplace_data: {
+          images,
+          color: primaryColor,
+          quantity: parseInt(quantity) || 0,
+          tags,
+          materials,
+        },
+      };
+
+      if (productId) {
+        await supabase
+          .from("marketplace_listings")
+          .update(listingData)
+          .eq('id', productId)
+          .eq('user_id', user.id);
+      } else {
+        await supabase.from("marketplace_listings").insert(listingData);
+      }
+
+      toast.success("Saved as draft");
+    } catch (error) {
+      console.error("Error saving draft:", error);
+      toast.error("Error saving draft");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
@@ -499,939 +423,274 @@ export default function VelaStyleListing() {
 
   return (
     <Layout>
-      <div className="h-full flex">
-        {/* Left Sidebar - Connected Shops */}
-        <div className="w-56 border-r border-border bg-card flex-shrink-0">
-          <div className="p-4">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-              Connected shops
-            </h3>
-            <div className="space-y-2">
-              {connectedShops.map((shop) => (
-                <button
-                  key={shop.id}
-                  onClick={() => setSelectedShop(shop)}
-                  className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left",
-                    selectedShop?.id === shop.id
-                      ? "bg-primary/10 border border-primary/20"
-                      : "hover:bg-muted border border-transparent"
-                  )}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">
-                      {shop.marketplace === 'etsy' ? 'E' : shop.marketplace[0].toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="text-sm font-medium truncate">{shop.name}</span>
-                </button>
-              ))}
-              {connectedShops.length === 0 && (
-                <p className="text-sm text-muted-foreground">No connected shops</p>
-              )}
+      <div className="flex flex-col h-full bg-background">
+        {/* Header */}
+        <div className="border-b bg-card px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => navigate(-1)}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-xl font-semibold">
+                {productId ? "Edit Listing" : "Create Listing"}
+              </h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleSaveAsDraft} disabled={isSaving}>
+                Save Draft
+              </Button>
+              <Button onClick={handlePublish} disabled={isSaving}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Publish
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Top Tab Bar */}
-          <div className="border-b border-border bg-background sticky top-0 z-20">
-            {/* Section Tabs */}
-            <div className="flex items-center overflow-x-auto">
-              {mainSections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => scrollToSection(section.id)}
-                  className={cn(
-                    "px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-all",
-                    activeSection === section.id
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {section.id === "variations" && variants.some(v => !v.isActive) && (
-                    <span className="w-2 h-2 bg-primary rounded-full inline-block mr-1.5"></span>
-                  )}
-                  {section.label}
-                  {section.id === "shipping" && (
-                    <span className="w-2 h-2 bg-destructive rounded-full inline-block ml-1.5"></span>
-                  )}
-                </button>
-              ))}
-            </div>
-            
-            {/* Profile Bar - Green Banner with iKas Product Selector */}
-            <div className="bg-emerald-50 dark:bg-emerald-950/30 px-6 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {/* iKas Product Selector */}
-                <Select 
-                  value={selectedIkasProduct} 
-                  onValueChange={loadIkasProductToForm}
-                >
-                  <SelectTrigger className="w-72 bg-background">
-                    {isLoadingProducts ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Image className="h-4 w-4 mr-2 text-primary" />
-                    )}
-                    <SelectValue placeholder="iKas ürün seçin..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-80">
-                    {ikasProducts.length === 0 ? (
-                      <div className="p-3 text-center text-muted-foreground text-sm">
-                        {isLoadingProducts ? 'Yükleniyor...' : 'Senkronize edilmiş ürün yok'}
-                      </div>
-                    ) : (
-                      ikasProducts.map((product) => (
-                        <SelectItem 
-                          key={product.id} 
-                          value={product.id}
-                          className="flex items-center gap-2"
-                        >
-                          <div className="flex items-center gap-2">
-                            {product.images?.[0] && (
-                              <img 
-                                src={product.images[0]} 
-                                alt="" 
-                                className="w-8 h-8 rounded object-cover flex-shrink-0"
-                              />
-                            )}
-                            <div className="flex flex-col">
-                              <span className="truncate max-w-[200px]">{product.title}</span>
-                              <span className="text-xs text-muted-foreground">
-                                Stok: {product.stock} | {product.price > 0 ? `₺${product.price}` : 'Fiyat yok'}
-                              </span>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-
-                <Select value={selectedProfile} onValueChange={setSelectedProfile}>
-                  <SelectTrigger className="w-48 bg-background">
-                    <Settings2 className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Choose Profile" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="front-back">Front-Back View Pri...</SelectItem>
-                    <SelectItem value="default">Default</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <RefreshCcw className="h-4 w-4" />
-                  Revert
-                </Button>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span>{ikasProducts.length} iKas ürün</span>
-                <Button variant="link" size="sm" className="text-primary">
-                  Show <ChevronDown className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-            </div>
+        {/* Section Navigation */}
+        <div className="border-b bg-card px-6">
+          <div className="flex gap-1 overflow-x-auto py-2">
+            {mainSections.map((section) => (
+              <button
+                key={section.id}
+                onClick={() => scrollToSection(section.id)}
+                className={cn(
+                  "px-3 py-1.5 text-sm font-medium rounded-full transition-colors whitespace-nowrap",
+                  activeSection === section.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+              >
+                {section.label}
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* Scrollable Content */}
-          <ScrollArea ref={contentRef} className="flex-1">
-            <div className="max-w-4xl mx-auto p-6 space-y-8 pb-24">
-              
-              {/* Photos Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['photos'] = el; }} id="photos">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">Photos</h2>
-                  </div>
-                  <div className="grid grid-cols-5 gap-4">
-                    {images.map((img, i) => (
-                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
-                        <img src={img} alt="" className="w-full h-full object-cover" />
-                        <button
-                          onClick={() => setImages(images.filter((_, idx) => idx !== i))}
-                          className="absolute top-2 right-2 p-1 bg-background/80 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </button>
-                      </div>
-                    ))}
-                    <button className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
-                      <Upload className="h-6 w-6" />
-                      <span className="text-xs">Add photo</span>
+        {/* Content */}
+        <ScrollArea ref={contentRef} className="flex-1 p-6">
+          <div className="max-w-3xl mx-auto space-y-12">
+            {/* Photos Section */}
+            <section ref={(el) => (sectionRefs.current["photos"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Photos</h2>
+              <div className="grid grid-cols-4 gap-4">
+                {images.map((img, index) => (
+                  <div key={index} className="relative aspect-square border rounded-lg overflow-hidden group">
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => setImages(images.filter((_, i) => i !== index))}
+                      className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
-                </div>
-              </section>
+                ))}
+                <label className="aspect-square border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:border-primary">
+                  <Plus className="h-8 w-8 text-muted-foreground" />
+                  <input type="file" accept="image/*" className="hidden" multiple />
+                </label>
+              </div>
+            </section>
 
-              {/* Video Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['video'] = el; }} id="video">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Video</h2>
-                  <div className="flex items-center justify-center h-32 border-2 border-dashed border-border rounded-lg">
-                    <div className="text-center text-muted-foreground">
-                      <Video className="h-8 w-8 mx-auto mb-2" />
-                      <p className="text-sm">Add a video URL</p>
-                    </div>
-                  </div>
-                </div>
-              </section>
+            {/* Video Section */}
+            <section ref={(el) => (sectionRefs.current["video"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Video</h2>
+              <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                <Video className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">Add a video</p>
+              </div>
+            </section>
 
-              {/* Title Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['title'] = el; }} id="title">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">Title</h2>
-                    <Badge variant="outline" className="text-xs">NA</Badge>
-                  </div>
+            {/* Title Section */}
+            <section ref={(el) => (sectionRefs.current["title"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Title</h2>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value.slice(0, maxTitleLength))}
+                placeholder="Enter title"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {maxTitleLength - title.length} characters remaining
+              </p>
+            </section>
+
+            {/* Description Section */}
+            <section ref={(el) => (sectionRefs.current["description"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Description</h2>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe your item"
+                rows={6}
+              />
+            </section>
+
+            {/* Tags Section */}
+            <section ref={(el) => (sectionRefs.current["tags"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Tags</h2>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {tags.map((tag, index) => (
+                  <Badge key={index} variant="secondary" className="gap-1">
+                    {tag}
+                    <button onClick={() => removeTag(index)}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              <Input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={handleAddTag}
+                placeholder="Add tags (press Enter)"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {maxTagCount - tags.length} tags remaining
+              </p>
+            </section>
+
+            {/* Details Section */}
+            <section ref={(el) => (sectionRefs.current["details"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Details</h2>
+              <div className="space-y-4">
+                <div>
+                  <Label>Primary color</Label>
                   <Input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value.slice(0, maxTitleLength))}
-                    placeholder="Title"
-                    className="mb-2"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {maxTitleLength - title.length} characters remaining
-                  </p>
-                </div>
-              </section>
-
-              {/* Description Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['description'] = el; }} id="description">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">Description</h2>
-                    <Badge variant="outline" className="text-xs">NA</Badge>
-                  </div>
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Description"
-                    className="min-h-[150px]"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    placeholder="Color"
+                    className="mt-1"
                   />
                 </div>
-              </section>
-
-              {/* Tags Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['tags'] = el; }} id="tags">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">Tags</h2>
-                    <Badge variant="outline" className="text-xs">NA</Badge>
-                  </div>
+                <div>
+                  <Label>Materials</Label>
                   <Input
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={handleAddTag}
-                    placeholder="Tags"
-                    className="mb-2"
+                    value={materials}
+                    onChange={(e) => setMaterials(e.target.value)}
+                    placeholder="Materials used"
+                    className="mt-1"
                   />
-                  <p className="text-xs text-muted-foreground mb-3">
-                    {maxTagCount - tags.length} remaining
-                  </p>
-                  {tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {tags.map((tag, i) => (
-                        <Badge key={i} variant="secondary" className="gap-1">
-                          {tag}
-                          <button onClick={() => removeTag(i)}>
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              </section>
+              </div>
+            </section>
 
-              {/* Details Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['details'] = el; }} id="details">
-                <div className="bg-card border border-border rounded-lg p-6 space-y-6">
-                  <h2 className="text-lg font-semibold">Details</h2>
-                  
-                  {/* Type */}
-                  <div>
-                    <Label className="text-sm font-medium mb-3 block">Type</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        onClick={() => setProductType("physical")}
-                        className={cn(
-                          "p-4 rounded-lg border-2 text-left transition-all",
-                          productType === "physical"
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={cn(
-                            "w-5 h-5 rounded-full border-2 flex items-center justify-center",
-                            productType === "physical" ? "border-primary" : "border-muted-foreground"
-                          )}>
-                            {productType === "physical" && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium">Physical</p>
-                            <p className="text-sm text-muted-foreground">A tangible item that you will ship to buyers.</p>
-                          </div>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => setProductType("digital")}
-                        className={cn(
-                          "p-4 rounded-lg border-2 text-left transition-all",
-                          productType === "digital"
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={cn(
-                            "w-5 h-5 rounded-full border-2 flex items-center justify-center",
-                            productType === "digital" ? "border-primary" : "border-muted-foreground"
-                          )}>
-                            {productType === "digital" && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium">Digital</p>
-                            <p className="text-sm text-muted-foreground">A digital file that buyers will download.</p>
-                          </div>
-                        </div>
-                      </button>
-                    </div>
+            {/* Price Section */}
+            <section ref={(el) => (sectionRefs.current["price"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Price</h2>
+              <Input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="0.00"
+              />
+            </section>
+
+            {/* Inventory Section */}
+            <section ref={(el) => (sectionRefs.current["inventory"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Inventory</h2>
+              <div>
+                <Label>Quantity</Label>
+                <Input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  placeholder="0"
+                  className="mt-1"
+                />
+              </div>
+            </section>
+
+            {/* Variations Section */}
+            <section ref={(el) => (sectionRefs.current["variations"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Variations</h2>
+              <div className="space-y-4">
+                <div>
+                  <Label>Colors</Label>
+                  <div className="flex flex-wrap gap-2 mt-1 mb-2">
+                    {variantTypes.find(vt => vt.id === 'color')?.values.map((v) => (
+                      <Badge key={v.id} variant="outline" className="gap-1">
+                        {v.name}
+                        <button onClick={() => removeVariantOption('color', v.id)}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
                   </div>
-
-                  {/* Who/What/When */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Who made it?</Label>
-                      <Select value={whoMadeIt} onValueChange={setWhoMadeIt}>
-                        <SelectTrigger><SelectValue placeholder="Who made it?" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="i-did">I did</SelectItem>
-                          <SelectItem value="collective">A member of my shop</SelectItem>
-                          <SelectItem value="other">Another company</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">What is it?</Label>
-                      <Select value={whatIsIt} onValueChange={setWhatIsIt}>
-                        <SelectTrigger><SelectValue placeholder="What is it?" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="finished">A finished product</SelectItem>
-                          <SelectItem value="supply">A supply or tool</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">When was it made?</Label>
-                      <Select value={whenMade} onValueChange={setWhenMade}>
-                        <SelectTrigger><SelectValue placeholder="When was it made?" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="made-to-order">Made to order</SelectItem>
-                          <SelectItem value="2020s">2020-2029</SelectItem>
-                          <SelectItem value="2010s">2010-2019</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Production partner */}
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Production partner <span className="text-muted-foreground">Optional</span></Label>
+                  <div className="flex gap-2">
                     <Input
-                      value={productionPartner}
-                      onChange={(e) => setProductionPartner(e.target.value)}
-                      placeholder="Choose Production partner"
+                      value={newColorOption}
+                      onChange={(e) => setNewColorOption(e.target.value)}
+                      placeholder="Add color"
                     />
+                    <Button onClick={handleAddColorOption}>Add</Button>
                   </div>
-
-                  {/* Category */}
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Category</Label>
-                    <Select>
-                      <SelectTrigger><SelectValue placeholder="Choose Category" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="clothing">Clothing</SelectItem>
-                        <SelectItem value="accessories">Accessories</SelectItem>
-                        <SelectItem value="home">Home & Living</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  {colorError && <p className="text-xs text-destructive mt-1">{colorError}</p>}
+                </div>
+                <div>
+                  <Label>Sizes</Label>
+                  <div className="flex flex-wrap gap-2 mt-1 mb-2">
+                    {variantTypes.find(vt => vt.id === 'size')?.values.map((v) => (
+                      <Badge key={v.id} variant="outline" className="gap-1">
+                        {v.name}
+                        <button onClick={() => removeVariantOption('size', v.id)}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
                   </div>
-
-                  {/* Primary/Secondary color */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Primary color <span className="text-muted-foreground">Optional</span></Label>
-                      <Select value={primaryColor} onValueChange={setPrimaryColor}>
-                        <SelectTrigger><SelectValue placeholder="Choose Primary color" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="black">Black</SelectItem>
-                          <SelectItem value="white">White</SelectItem>
-                          <SelectItem value="blue">Blue</SelectItem>
-                          <SelectItem value="red">Red</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Secondary color <span className="text-muted-foreground">Optional</span></Label>
-                      <Select value={secondaryColor} onValueChange={setSecondaryColor}>
-                        <SelectTrigger><SelectValue placeholder="Choose Secondary color" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="black">Black</SelectItem>
-                          <SelectItem value="white">White</SelectItem>
-                          <SelectItem value="blue">Blue</SelectItem>
-                          <SelectItem value="red">Red</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Renewal options */}
-                  <div>
-                    <Label className="text-sm font-medium mb-3 block">Renewal options</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        onClick={() => setRenewalOption("automatic")}
-                        className={cn(
-                          "p-4 rounded-lg border-2 text-left transition-all",
-                          renewalOption === "automatic"
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={cn(
-                            "w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5",
-                            renewalOption === "automatic" ? "border-primary" : "border-muted-foreground"
-                          )}>
-                            {renewalOption === "automatic" && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium">Automatic</p>
-                            <p className="text-sm text-muted-foreground">This listing will renew as it expires for $0.20 USD each time (recommended).</p>
-                          </div>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => setRenewalOption("manual")}
-                        className={cn(
-                          "p-4 rounded-lg border-2 text-left transition-all",
-                          renewalOption === "manual"
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={cn(
-                            "w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5",
-                            renewalOption === "manual" ? "border-primary" : "border-muted-foreground"
-                          )}>
-                            {renewalOption === "manual" && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium">Manual</p>
-                            <p className="text-sm text-muted-foreground">I'll renew expired listings myself.</p>
-                          </div>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Materials */}
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Materials</Label>
+                  <div className="flex gap-2">
                     <Input
-                      value={materials}
-                      onChange={(e) => setMaterials(e.target.value)}
-                      placeholder="Materials"
+                      value={newSizeOption}
+                      onChange={(e) => setNewSizeOption(e.target.value)}
+                      placeholder="Add size"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">13 remaining</p>
+                    <Button onClick={handleAddSizeOption}>Add</Button>
                   </div>
+                  {sizeError && <p className="text-xs text-destructive mt-1">{sizeError}</p>}
                 </div>
-              </section>
+              </div>
+            </section>
 
-              {/* Price Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['price'] = el; }} id="price">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Price</h2>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Price</Label>
-                    <Input
-                      type="number"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      placeholder="0,00"
-                    />
-                  </div>
-                </div>
-              </section>
+            {/* Personalization Section */}
+            <section ref={(el) => (sectionRefs.current["personalization"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Personalization</h2>
+              <div className="flex items-center justify-between mb-4">
+                <Label>Enable personalization</Label>
+                <Switch
+                  checked={personalizationEnabled}
+                  onCheckedChange={setPersonalizationEnabled}
+                />
+              </div>
+              {personalizationEnabled && (
+                <Textarea
+                  value={personalizationInstructions}
+                  onChange={(e) => setPersonalizationInstructions(e.target.value)}
+                  placeholder="Instructions for buyers"
+                  rows={4}
+                />
+              )}
+            </section>
 
-              {/* Inventory Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['inventory'] = el; }} id="inventory">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Inventory</h2>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Quantity</Label>
-                    <Input
-                      type="number"
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              </section>
-
-              {/* Variations Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['variations'] = el; }} id="variations">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Variations</h2>
-                  
-                  {/* Category Cascade Dropdowns */}
-                  <div className="flex items-center gap-3 mb-6">
-                    <Select value={categoryLevel1} onValueChange={setCategoryLevel1}>
-                      <SelectTrigger className="w-40"><SelectValue placeholder="Clothing" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="clothing">Clothing</SelectItem>
-                        <SelectItem value="accessories">Accessories</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={categoryLevel2} onValueChange={setCategoryLevel2}>
-                      <SelectTrigger className="w-48"><SelectValue placeholder="Gender-Neutral Adult C..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gender-neutral">Gender-Neutral Adult C...</SelectItem>
-                        <SelectItem value="men">Men's</SelectItem>
-                        <SelectItem value="women">Women's</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={categoryLevel3} onValueChange={setCategoryLevel3}>
-                      <SelectTrigger className="w-48"><SelectValue placeholder="Hoodies & Sweatshirts" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        <SelectItem value="blazers">Blazers</SelectItem>
-                        <SelectItem value="costumes">Costumes</SelectItem>
-                        <SelectItem value="hoodies">Hoodies & Sweatshirts</SelectItem>
-                        <SelectItem value="jackets">Jackets & Coats</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={categoryLevel4} onValueChange={setCategoryLevel4}>
-                      <SelectTrigger className="w-40"><SelectValue placeholder="Choose Category" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="t-shirts">T-shirts</SelectItem>
-                        <SelectItem value="tops">Tops & Tees</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Sub-tabs */}
-                  <div className="border-b border-border mb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex">
-                        {variationSubTabs.map((tab) => (
-                          <button
-                            key={tab.id}
-                            onClick={() => setActiveVariationTab(tab.id)}
-                            className={cn(
-                              "px-4 py-2 text-sm font-medium border-b-2 transition-all",
-                              activeVariationTab === tab.id
-                                ? "border-primary text-foreground"
-                                : "border-transparent text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => setShowAllVariations(!showAllVariations)}
-                        className="text-primary"
-                      >
-                        {showAllVariations ? "Show less" : "Show all"}
-                        <ChevronDown className={cn("h-4 w-4 ml-1 transition-transform", showAllVariations && "rotate-180")} />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Variation Type Selectors */}
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="flex items-center gap-2">
-                      <Select>
-                        <SelectTrigger className="w-40">
-                          <SelectValue placeholder="Primary color" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="primary-color">Primary color</SelectItem>
-                          <SelectItem value="sizes">Sizes</SelectItem>
-                          <SelectItem value="secondary-color">Secondary color</SelectItem>
-                          <SelectItem value="diameter">Diameter</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Select>
-                        <SelectTrigger className="w-40">
-                          <SelectValue placeholder="size" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="size">size</SelectItem>
-                          <SelectItem value="length">length</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                  </div>
-
-                  {/* Variations Content based on active tab */}
-                  {activeVariationTab === "variations" && (
-                    <div className="grid grid-cols-2 gap-8">
-                      {/* Primary Color Column */}
-                      <div className="space-y-0">
-                        <div className="py-3 border-b border-border text-xs font-medium text-muted-foreground uppercase">
-                          Primary color
-                        </div>
-                        {/* Color Options */}
-                        {variantTypes.find(vt => vt.id === 'color')?.values.map((option) => (
-                          <div key={option.id} className="flex items-center gap-3 py-3 border-b border-border group">
-                            <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-move flex-shrink-0" />
-                            <span className="text-sm flex-1">{option.name}</span>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => removeVariantOption('color', option.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                          </div>
-                        ))}
-                        {/* Add Color Input */}
-                        <div className="py-3 space-y-2">
-                          <div className="flex gap-2">
-                            <Input 
-                              value={newColorOption}
-                              onChange={(e) => { setNewColorOption(e.target.value); setColorError(""); }}
-                              onKeyDown={(e) => e.key === 'Enter' && handleAddColorOption()}
-                              placeholder="Add option"
-                              className={cn("flex-1", colorError && "border-destructive")}
-                            />
-                            <Button onClick={handleAddColorOption} size="sm">
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add
-                            </Button>
-                          </div>
-                          {colorError && <p className="text-destructive text-sm">{colorError}</p>}
-                        </div>
-                      </div>
-                      
-                      {/* Size Column */}
-                      <div className="space-y-0">
-                        <div className="py-3 border-b border-border text-xs font-medium text-muted-foreground uppercase">
-                          size
-                        </div>
-                        {/* Size Options */}
-                        {variantTypes.find(vt => vt.id === 'size')?.values.map((option) => (
-                          <div key={option.id} className="flex items-center gap-3 py-3 border-b border-border group">
-                            <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-move flex-shrink-0" />
-                            <span className="text-sm flex-1">{option.name}</span>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => removeVariantOption('size', option.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                          </div>
-                        ))}
-                        {/* Add Size Input */}
-                        <div className="py-3 space-y-2">
-                          <div className="flex gap-2">
-                            <Input 
-                              value={newSizeOption}
-                              onChange={(e) => { setNewSizeOption(e.target.value); setSizeError(""); }}
-                              onKeyDown={(e) => e.key === 'Enter' && handleAddSizeOption()}
-                              placeholder="Add option"
-                              className={cn("flex-1", sizeError && "border-destructive")}
-                            />
-                            <Button onClick={handleAddSizeOption} size="sm">
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add
-                            </Button>
-                          </div>
-                          {sizeError && <p className="text-destructive text-sm">{sizeError}</p>}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeVariationTab === "price" && (
-                    <div className="space-y-0">
-                      {/* Price Header with Controls */}
-                      <div className="grid grid-cols-2 gap-8 mb-4">
-                        <div className="flex items-center gap-4">
-                          <label className="flex items-center gap-2">
-                            <Checkbox checked={individualPrice} onCheckedChange={(v) => setIndividualPrice(!!v)} />
-                            <span className="text-sm">Individual price</span>
-                          </label>
-                          <Select defaultValue="increase">
-                            <SelectTrigger className="w-28 h-8"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="increase">Increase by</SelectItem>
-                              <SelectItem value="decrease">Decrease by</SelectItem>
-                              <SelectItem value="set">Set to</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <div className="flex items-center gap-1">
-                            <Input type="number" defaultValue="0.00" className="w-16 h-8" />
-                            <span className="text-sm text-muted-foreground">$</span>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="flex items-center gap-2">
-                            <Checkbox />
-                            <span className="text-sm">Individual price</span>
-                          </label>
-                        </div>
-                      </div>
-                      {/* Header */}
-                      <div className="grid grid-cols-[1fr_120px_1fr] gap-4 py-3 border-b border-border text-xs font-medium text-muted-foreground uppercase">
-                        <div>Primary color</div>
-                        <div className="text-center">Price</div>
-                        <div>size</div>
-                      </div>
-                      {/* Price Rows */}
-                      {(showAllVariations ? variants : variants.slice(0, 8)).map((variant, i) => (
-                        <div key={variant.id} className="grid grid-cols-[1fr_120px_1fr] gap-4 py-3 border-b border-border items-center">
-                          <span className="text-sm">{variant.name}</span>
-                          <Input
-                            type="number"
-                            value={variant.price}
-                            onChange={(e) => updateVariantPrice(variant.id, e.target.value)}
-                            className="text-center h-9"
-                          />
-                          <span className="text-sm">{variant.size || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'][i % 7]}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeVariationTab === "quantity" && (
-                    <div className="space-y-0">
-                      {/* Quantity Header with Controls */}
-                      <div className="grid grid-cols-2 gap-8 mb-4">
-                        <div>
-                          <label className="flex items-center gap-2">
-                            <Checkbox checked={individualQuantity} onCheckedChange={(v) => setIndividualQuantity(!!v)} />
-                            <span className="text-sm">Individual quantity</span>
-                          </label>
-                        </div>
-                        <div>
-                          <label className="flex items-center gap-2">
-                            <Checkbox />
-                            <span className="text-sm">Individual quantity</span>
-                          </label>
-                        </div>
-                      </div>
-                      {/* Header */}
-                      <div className="grid grid-cols-2 gap-8 py-3 border-b border-border text-xs font-medium text-muted-foreground uppercase">
-                        <div>Primary color</div>
-                        <div>size</div>
-                      </div>
-                      {(showAllVariations ? variants : variants.slice(0, 8)).map((variant, i) => (
-                        <div key={variant.id} className="grid grid-cols-2 gap-8 py-3 border-b border-border items-center">
-                          <span className="text-sm">{variant.name}</span>
-                          <span className="text-sm">{variant.size || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'][i % 7]}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeVariationTab === "sku" && (
-                    <div className="space-y-0">
-                      {/* Header */}
-                      <div className="grid grid-cols-[1fr_150px_1fr] gap-4 py-3 border-b border-border text-xs font-medium text-muted-foreground uppercase">
-                        <div>Primary color</div>
-                        <div className="text-center">SKU</div>
-                        <div>size</div>
-                      </div>
-                      {(showAllVariations ? variants : variants.slice(0, 8)).map((variant, i) => (
-                        <div key={variant.id} className="grid grid-cols-[1fr_150px_1fr] gap-4 py-3 border-b border-border items-center">
-                          <span className="text-sm">{variant.name}</span>
-                          <Input
-                            value={variant.sku || ''}
-                            placeholder="SKU"
-                            className="text-center h-9"
-                          />
-                          <span className="text-sm">{variant.size || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'][i % 7]}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeVariationTab === "visibility" && (
-                    <div className="space-y-0">
-                      {/* Header */}
-                      <div className="grid grid-cols-2 gap-8 py-3 border-b border-border text-xs font-medium text-muted-foreground uppercase">
-                        <div>Primary color</div>
-                        <div>size</div>
-                      </div>
-                      {(showAllVariations ? variants : variants.slice(0, 8)).map((variant, i) => (
-                        <div key={variant.id} className="grid grid-cols-2 gap-8 py-3 border-b border-border items-center">
-                          <div className="flex items-center justify-between pr-4">
-                            <span className="text-sm">{variant.name}</span>
-                            <Switch
-                              checked={variant.isActive}
-                              onCheckedChange={() => toggleVariantVisibility(variant.id)}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between pr-4">
-                            <span className="text-sm">{variant.size || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'][i % 7]}</span>
-                            <Switch checked={true} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeVariationTab === "photos" && (
-                    <div className="space-y-0">
-                      {/* Variant type selector */}
-                      <div className="py-3 border-b border-border">
-                        <Select defaultValue="primary-color">
-                          <SelectTrigger className="w-40"><SelectValue placeholder="Primary color" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="primary-color">Primary color</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {/* Header */}
-                      <div className="py-3 border-b border-border text-xs font-medium text-muted-foreground uppercase">
-                        Primary color
-                      </div>
-                      {/* Photo Rows with real images if available */}
-                      {(showAllVariations ? variants : variants.slice(0, 5)).map((variant) => (
-                        <div key={variant.id} className="flex items-center gap-4 py-3 border-b border-border">
-                          <span className="text-sm w-48 flex-shrink-0">{variant.name}</span>
-                          <div className="flex gap-2 overflow-x-auto pb-1">
-                            {/* Show variant images or product images */}
-                            {(variant.images && variant.images.length > 0 ? variant.images : images).slice(0, 15).map((img, i) => (
-                              <div key={i} className={cn(
-                                "w-10 h-10 rounded border flex-shrink-0 overflow-hidden",
-                                i === 0 ? "border-primary border-2" : "border-border"
-                              )}>
-                                <img src={img} alt="" className="w-full h-full object-cover" />
-                              </div>
-                            ))}
-                            {/* Placeholder slots if not enough images */}
-                            {[...Array(Math.max(0, 12 - Math.min(15, (variant.images?.length || images.length))))].map((_, i) => (
-                              <div key={`empty-${i}`} className="w-10 h-10 rounded border border-dashed border-border bg-muted/30 flex-shrink-0" />
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeVariationTab === "processing" && (
-                    <div className="space-y-0">
-                      {/* Header */}
-                      <div className="grid grid-cols-[1fr_150px_1fr] gap-4 py-3 border-b border-border text-xs font-medium text-muted-foreground uppercase">
-                        <div>Primary color</div>
-                        <div className="text-center">Processing time</div>
-                        <div>size</div>
-                      </div>
-                      {(showAllVariations ? variants : variants.slice(0, 8)).map((variant, i) => (
-                        <div key={variant.id} className="grid grid-cols-[1fr_150px_1fr] gap-4 py-3 border-b border-border items-center">
-                          <span className="text-sm">{variant.name}</span>
-                          <Select defaultValue="1-3">
-                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1-3">1-3 days</SelectItem>
-                              <SelectItem value="3-5">3-5 days</SelectItem>
-                              <SelectItem value="1-2w">1-2 weeks</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <span className="text-sm">{variant.size || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'][i % 7]}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              {/* Personalization Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['personalization'] = el; }} id="personalization">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Personalization</h2>
-                  <label className="flex items-center gap-3">
-                    <Switch
-                      checked={personalizationEnabled}
-                      onCheckedChange={setPersonalizationEnabled}
-                    />
-                    <span className="text-sm">Enable personalization</span>
-                  </label>
-                  {personalizationEnabled && (
-                    <Textarea
-                      value={personalizationInstructions}
-                      onChange={(e) => setPersonalizationInstructions(e.target.value)}
-                      placeholder="Add personalization instructions..."
-                      className="mt-4"
-                    />
-                  )}
-                </div>
-              </section>
-
-              {/* Shipping Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['shipping'] = el; }} id="shipping">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Shipping</h2>
-                  <Select value={shippingProfile} onValueChange={setShippingProfile}>
-                    <SelectTrigger><SelectValue placeholder="Choose shipping profile" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard Shipping</SelectItem>
-                      <SelectItem value="express">Express Shipping</SelectItem>
-                      <SelectItem value="free">Free Shipping</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </section>
-            </div>
-          </ScrollArea>
-
-          {/* Footer */}
-          <div className="border-t border-border bg-background px-6 py-4 flex items-center justify-between">
-            <Button variant="outline" onClick={() => navigate("/inventory")}>
-              Cancel
-            </Button>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={handleSaveAsDraft} className="gap-2">
-                <Settings2 className="h-4 w-4" />
-                Save as Profile
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <Copy className="h-4 w-4" />
-                Copy
-              </Button>
-              <Button onClick={handlePublish} disabled={isSaving} className="gap-2 bg-primary">
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                Publish
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </div>
+            {/* Shipping Section */}
+            <section ref={(el) => (sectionRefs.current["shipping"] = el)}>
+              <h2 className="text-lg font-semibold mb-4">Shipping</h2>
+              <Select value={shippingProfile} onValueChange={setShippingProfile}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select shipping profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard Shipping</SelectItem>
+                  <SelectItem value="express">Express Shipping</SelectItem>
+                  <SelectItem value="free">Free Shipping</SelectItem>
+                </SelectContent>
+              </Select>
+            </section>
           </div>
-        </div>
+        </ScrollArea>
       </div>
     </Layout>
   );

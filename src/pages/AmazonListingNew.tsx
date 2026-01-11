@@ -131,17 +131,17 @@ export default function AmazonListingNew() {
   const { categories, isLoading: categoriesLoading } = useAmazonCategories();
   const { createProduct, updateProduct, isCreating } = useAmazonProducts();
 
-  // Load Amazon connection
+  // Load Amazon connection from shop_connections
   useEffect(() => {
     const loadConnection = async () => {
       if (!user) return;
       
       const { data } = await supabase
-        .from('marketplace_connections')
+        .from('shop_connections')
         .select('*')
         .eq('user_id', user.id)
-        .eq('marketplace', 'amazon')
-        .eq('is_active', true)
+        .eq('platform', 'amazon')
+        .eq('is_connected', true)
         .maybeSingle();
       
       setAmazonConnection(data);
@@ -177,7 +177,7 @@ export default function AmazonListingNew() {
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       
       const { error: uploadError, data } = await supabase.storage
-        .from('listing-images')
+        .from('product-images')
         .upload(fileName, file);
 
       if (uploadError) {
@@ -186,7 +186,7 @@ export default function AmazonListingNew() {
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('listing-images')
+        .from('product-images')
         .getPublicUrl(fileName);
 
       setImages(prev => [...prev, publicUrl]);
@@ -201,7 +201,7 @@ export default function AmazonListingNew() {
     }
   };
 
-  // Handle save as draft
+  // Handle save as draft - saves to marketplace_listings
   const handleSaveAsDraft = async () => {
     if (!user) {
       toast.error("Lütfen giriş yapın");
@@ -210,27 +210,37 @@ export default function AmazonListingNew() {
 
     setIsSaving(true);
     try {
-      const productData = {
+      const listingData = {
         title,
         description,
         price: parseFloat(price) || 0,
-        stock: parseInt(quantity) || 0,
         status: "draft",
-        source: "amazon",
+        platform: "amazon",
         user_id: user.id,
-        images,
-        brand,
-        sku,
+        marketplace_data: {
+          images,
+          brand,
+          sku,
+          bulletPoints,
+          manufacturer,
+          modelNumber,
+          partNumber,
+          quantity: parseInt(quantity) || 0,
+          condition,
+          fulfillmentChannel,
+          attributes,
+          selectedCategory,
+        },
       };
 
       if (productId) {
         await supabase
-          .from("products")
-          .update(productData)
+          .from("marketplace_listings")
+          .update(listingData)
           .eq('id', productId)
           .eq('user_id', user.id);
       } else {
-        await supabase.from("products").insert(productData);
+        await supabase.from("marketplace_listings").insert(listingData);
       }
 
       toast.success("Taslak kaydedildi");
@@ -269,21 +279,24 @@ export default function AmazonListingNew() {
         condition: condition === "new" ? "new_new" : condition,
       });
 
-      // Save to local database
-      const productData = {
+      // Save to marketplace_listings
+      const listingData = {
         title,
         description,
         price: parseFloat(price) || 0,
-        stock: parseInt(quantity) || 0,
         status: "active",
-        source: "amazon",
+        platform: "amazon",
         user_id: user!.id,
-        images,
-        brand,
-        sku,
+        shop_connection_id: amazonConnection.id,
+        marketplace_data: {
+          images,
+          brand,
+          sku,
+          quantity: parseInt(quantity) || 0,
+        },
       };
 
-      await supabase.from("products").insert(productData);
+      await supabase.from("marketplace_listings").insert(listingData);
 
       toast.success("Ürün Amazon'a yayınlandı!");
       navigate("/inventory");
@@ -498,9 +511,7 @@ export default function AmazonListingNew() {
                       <div className="space-y-2 mt-2">
                         {bulletPoints.map((point, index) => (
                           <div key={index} className="flex items-center gap-2">
-                            <span className="text-muted-foreground text-sm w-6">
-                              {index + 1}.
-                            </span>
+                            <span className="text-sm text-muted-foreground w-6">{index + 1}.</span>
                             <Input
                               value={point}
                               onChange={(e) => handleBulletPointChange(index, e.target.value)}
@@ -513,18 +524,15 @@ export default function AmazonListingNew() {
                     </div>
 
                     <div>
-                      <Label htmlFor="description">Ürün Açıklaması</Label>
+                      <Label htmlFor="description">Açıklama</Label>
                       <Textarea
                         id="description"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Detaylı ürün açıklaması..."
-                        className="mt-1 min-h-[150px]"
-                        maxLength={2000}
+                        placeholder="Ürün açıklamasını girin"
+                        className="mt-1"
+                        rows={6}
                       />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {description.length}/2000 karakter
-                      </p>
                     </div>
 
                     <div>
@@ -550,31 +558,21 @@ export default function AmazonListingNew() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Layers className="h-5 w-5" />
-                      Kategori Seçimi
+                      Kategori
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <AmazonCategoryTree
-                      onCategorySelect={(category) => {
-                        setSelectedCategory(category);
-                        setAttributes({});
-                      }}
+                      categories={categories}
                       selectedCategory={selectedCategory}
+                      onSelect={setSelectedCategory}
+                      isLoading={categoriesLoading}
                     />
-                    
-                    {selectedCategory && (
-                      <div className="mt-4 p-3 bg-muted rounded-lg">
-                        <p className="text-sm font-medium">Seçilen Kategori:</p>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedCategory.path.join(" > ")}
-                        </p>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               </section>
 
-              {/* Product Details Section */}
+              {/* Details Section */}
               <section
                 ref={(el) => (sectionRefs.current["details"] = el)}
                 className="space-y-6"
@@ -587,13 +585,17 @@ export default function AmazonListingNew() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <AmazonAttributePanel
-                      category={selectedCategory}
-                      attributes={attributes}
-                      onAttributeChange={(key, value) => {
-                        setAttributes(prev => ({ ...prev, [key]: value }));
-                      }}
-                    />
+                    {selectedCategory ? (
+                      <AmazonAttributePanel
+                        category={selectedCategory}
+                        attributes={attributes}
+                        onChange={setAttributes}
+                      />
+                    ) : (
+                      <p className="text-muted-foreground">
+                        Ürün detaylarını görmek için önce kategori seçin.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </section>
@@ -611,9 +613,9 @@ export default function AmazonListingNew() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="price">Fiyat (TL) *</Label>
+                        <Label htmlFor="price">Fiyat</Label>
                         <Input
                           id="price"
                           type="number"
@@ -621,12 +623,10 @@ export default function AmazonListingNew() {
                           onChange={(e) => setPrice(e.target.value)}
                           placeholder="0.00"
                           className="mt-1"
-                          min="0"
-                          step="0.01"
                         />
                       </div>
                       <div>
-                        <Label htmlFor="salePrice">İndirimli Fiyat (TL)</Label>
+                        <Label htmlFor="salePrice">İndirimli Fiyat</Label>
                         <Input
                           id="salePrice"
                           type="number"
@@ -634,12 +634,23 @@ export default function AmazonListingNew() {
                           onChange={(e) => setSalePrice(e.target.value)}
                           placeholder="0.00"
                           className="mt-1"
-                          min="0"
-                          step="0.01"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="sku">SKU</Label>
+                        <Input
+                          id="sku"
+                          value={sku}
+                          onChange={(e) => setSku(e.target.value)}
+                          placeholder="Stok kodu"
+                          className="mt-1"
                         />
                       </div>
                       <div>
-                        <Label htmlFor="quantity">Stok Miktarı *</Label>
+                        <Label htmlFor="quantity">Stok Miktarı</Label>
                         <Input
                           id="quantity"
                           type="number"
@@ -647,27 +658,16 @@ export default function AmazonListingNew() {
                           onChange={(e) => setQuantity(e.target.value)}
                           placeholder="0"
                           className="mt-1"
-                          min="0"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="sku">SKU (Stok Kodu)</Label>
-                        <Input
-                          id="sku"
-                          value={sku}
-                          onChange={(e) => setSku(e.target.value)}
-                          placeholder="Benzersiz ürün kodu"
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="condition">Ürün Durumu</Label>
+                        <Label htmlFor="condition">Durum</Label>
                         <Select value={condition} onValueChange={setCondition}>
                           <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Durumu seçin" />
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="new">Yeni</SelectItem>
@@ -679,19 +679,18 @@ export default function AmazonListingNew() {
                           </SelectContent>
                         </Select>
                       </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="fulfillment">Karşılama Yöntemi</Label>
-                      <Select value={fulfillmentChannel} onValueChange={setFulfillmentChannel}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Yöntemi seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="merchant">Satıcı Tarafından Gönderim (MFN)</SelectItem>
-                          <SelectItem value="amazon">Amazon Tarafından Gönderim (FBA)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div>
+                        <Label htmlFor="fulfillment">Teslimat Yöntemi</Label>
+                        <Select value={fulfillmentChannel} onValueChange={setFulfillmentChannel}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="merchant">Satıcı Tarafından</SelectItem>
+                            <SelectItem value="amazon">Amazon FBA</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -706,45 +705,42 @@ export default function AmazonListingNew() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Image className="h-5 w-5" />
-                      Ürün Görselleri
+                      Görseller
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-4 gap-4">
-                      {images.map((image, index) => (
-                        <div
-                          key={index}
-                          className={cn(
-                            "relative aspect-square border rounded-lg overflow-hidden group cursor-pointer",
-                            index === mainImageIndex && "ring-2 ring-primary"
-                          )}
-                          onClick={() => setMainImageIndex(index)}
-                        >
+                      {images.map((img, index) => (
+                        <div key={index} className="relative aspect-square border rounded-lg overflow-hidden group">
                           <img
-                            src={image}
-                            alt={`Ürün görseli ${index + 1}`}
+                            src={img}
+                            alt={`Ürün ${index + 1}`}
                             className="w-full h-full object-cover"
                           />
                           {index === mainImageIndex && (
-                            <Badge className="absolute top-2 left-2">Ana Görsel</Badge>
+                            <Badge className="absolute top-1 left-1 bg-primary">Ana</Badge>
                           )}
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeImage(index);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              onClick={() => setMainImageIndex(index)}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="destructive"
+                              onClick={() => removeImage(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
-                      
-                      <label className="aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-muted/50 transition-colors">
-                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                        <span className="text-sm text-muted-foreground">Görsel Ekle</span>
+                      <label className="aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                        <Upload className="h-8 w-8 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground mt-2">Görsel Ekle</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -754,10 +750,6 @@ export default function AmazonListingNew() {
                         />
                       </label>
                     </div>
-                    
-                    <p className="text-xs text-muted-foreground mt-4">
-                      * İlk görsel ana görsel olarak kullanılır. Tıklayarak ana görseli değiştirebilirsiniz.
-                    </p>
                   </CardContent>
                 </Card>
               </section>
@@ -768,63 +760,64 @@ export default function AmazonListingNew() {
                 className="space-y-6"
               >
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
+                  <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Tag className="h-5 w-5" />
                       Varyantlar
                     </CardTitle>
-                    <Button variant="outline" size="sm" onClick={addVariant}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Varyant Ekle
-                    </Button>
                   </CardHeader>
                   <CardContent>
                     {variants.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Tag className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>Henüz varyant eklenmedi</p>
-                        <p className="text-sm">Farklı renk, boyut veya özellikleri olan ürünler için varyant ekleyin</p>
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground mb-4">Henüz varyant eklenmedi</p>
+                        <Button onClick={addVariant}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Varyant Ekle
+                        </Button>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         {variants.map((variant) => (
-                          <div
-                            key={variant.id}
-                            className="flex items-center gap-4 p-4 border rounded-lg"
-                          >
-                            <div className="flex-1 grid grid-cols-4 gap-4">
-                              <Input
-                                placeholder="Varyant adı"
-                                value={variant.name}
-                                onChange={(e) => updateVariant(variant.id, "name", e.target.value)}
-                              />
-                              <Input
-                                placeholder="SKU"
-                                value={variant.sku}
-                                onChange={(e) => updateVariant(variant.id, "sku", e.target.value)}
-                              />
-                              <Input
-                                type="number"
-                                placeholder="Fiyat"
-                                value={variant.price}
-                                onChange={(e) => updateVariant(variant.id, "price", parseFloat(e.target.value) || 0)}
-                              />
-                              <Input
-                                type="number"
-                                placeholder="Stok"
-                                value={variant.stock}
-                                onChange={(e) => updateVariant(variant.id, "stock", parseInt(e.target.value) || 0)}
-                              />
-                            </div>
+                          <div key={variant.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                            <Input
+                              value={variant.name}
+                              onChange={(e) => updateVariant(variant.id, 'name', e.target.value)}
+                              placeholder="Varyant adı"
+                              className="flex-1"
+                            />
+                            <Input
+                              value={variant.sku}
+                              onChange={(e) => updateVariant(variant.id, 'sku', e.target.value)}
+                              placeholder="SKU"
+                              className="w-32"
+                            />
+                            <Input
+                              type="number"
+                              value={variant.price}
+                              onChange={(e) => updateVariant(variant.id, 'price', parseFloat(e.target.value))}
+                              placeholder="Fiyat"
+                              className="w-24"
+                            />
+                            <Input
+                              type="number"
+                              value={variant.stock}
+                              onChange={(e) => updateVariant(variant.id, 'stock', parseInt(e.target.value))}
+                              placeholder="Stok"
+                              className="w-20"
+                            />
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => removeVariant(variant.id)}
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         ))}
+                        <Button variant="outline" onClick={addVariant}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Varyant Ekle
+                        </Button>
                       </div>
                     )}
                   </CardContent>
@@ -832,80 +825,6 @@ export default function AmazonListingNew() {
               </section>
             </div>
           </ScrollArea>
-
-          {/* Right Sidebar - Summary */}
-          <div className="w-80 border-l bg-card p-4 hidden lg:block">
-            <div className="sticky top-4 space-y-4">
-              <h3 className="font-semibold">Ürün Özeti</h3>
-              
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-2">
-                  {title ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <span className={title ? "text-foreground" : "text-muted-foreground"}>
-                    Ürün başlığı
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {selectedCategory ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <span className={selectedCategory ? "text-foreground" : "text-muted-foreground"}>
-                    Kategori seçimi
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {price ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <span className={price ? "text-foreground" : "text-muted-foreground"}>
-                    Fiyat bilgisi
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {images.length > 0 ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <span className={images.length > 0 ? "text-foreground" : "text-muted-foreground"}>
-                    Ürün görselleri ({images.length})
-                  </span>
-                </div>
-              </div>
-
-              {title && (
-                <div className="pt-4 border-t">
-                  <p className="text-sm font-medium mb-2">Önizleme</p>
-                  <div className="border rounded-lg p-3">
-                    {images.length > 0 && (
-                      <img
-                        src={images[mainImageIndex]}
-                        alt="Önizleme"
-                        className="w-full aspect-square object-cover rounded mb-2"
-                      />
-                    )}
-                    <p className="text-sm font-medium line-clamp-2">{title}</p>
-                    {price && (
-                      <p className="text-lg font-bold text-primary mt-1">
-                        ₺{parseFloat(price).toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </Layout>

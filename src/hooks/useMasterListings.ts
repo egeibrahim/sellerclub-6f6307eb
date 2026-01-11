@@ -182,7 +182,7 @@ export function useMasterListings() {
 
       const { data, error } = await supabase
         .from('master_products')
-        .insert(insertData)
+        .insert(insertData as any)
         .select()
         .single();
 
