@@ -36,6 +36,16 @@ interface BulkPublishDialogProps {
   listings: MasterListing[];
 }
 
+// Helper to get base price from listing
+const getBasePrice = (listing: MasterListing): number => {
+  return listing.price ?? listing.base_price ?? 0;
+};
+
+// Helper to get SKU from listing
+const getSku = (listing: MasterListing): string | null => {
+  return listing.sku ?? listing.internal_sku ?? null;
+};
+
 export function BulkPublishDialog({ 
   open, 
   onOpenChange, 
@@ -191,6 +201,8 @@ export function BulkPublishDialog({
       }
 
       try {
+        const basePrice = getBasePrice(listing);
+        
         // Create marketplace_listings record instead of marketplace_products
         const { error: insertError } = await supabase
           .from('marketplace_listings')
@@ -201,7 +213,7 @@ export function BulkPublishDialog({
             platform: connection?.marketplace || 'unknown',
             title: listing.title,
             description: listing.description,
-            price: (listing.price || 0) + priceMarkup,
+            price: basePrice + priceMarkup,
             status: 'pending',
             sync_status: 'pending',
             marketplace_data: {
@@ -215,8 +227,8 @@ export function BulkPublishDialog({
 
         // Call sync function if available
         if (functionName) {
-          const images = listing.images as any[] || [];
-          const primaryImage = images.find((img: any) => img.is_primary) || images[0];
+          const images = listing.images || [];
+          const primaryImage = images.find((img) => img.is_primary) || images[0];
           
           await supabase.functions.invoke(functionName, {
             body: {
@@ -225,12 +237,12 @@ export function BulkPublishDialog({
               product: {
                 title: listing.title,
                 description: listing.description,
-                price: (listing.price || 0) + priceMarkup,
-                stock: 0,
-                sku: listing.sku,
+                price: basePrice + priceMarkup,
+                stock: listing.total_stock || 0,
+                sku: getSku(listing),
                 brand: listing.brand,
                 categoryId: mapping.categoryId,
-                images: images.map((img: any) => img.url) || [],
+                images: images.map((img) => img.url) || [],
                 primaryImage: primaryImage?.url,
               }
             }

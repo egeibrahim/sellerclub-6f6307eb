@@ -31,7 +31,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function MasterListingCard({ listing, onEdit, onDelete, onPublish }: MasterListingCardProps) {
   const primaryImage = listing.images?.find(img => img.is_primary) || listing.images?.[0];
-  const variantCount = listing.variants?.length || 0;
+  const variantCount = listing.variations?.length || 0;
   const channelCount = listing.marketplace_products?.length || 0;
 
   return (
