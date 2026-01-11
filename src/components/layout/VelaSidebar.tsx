@@ -1,13 +1,20 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ChevronDown, ChevronRight, Plus, Check } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useShop, Shop } from "@/contexts/ShopContext";
-import { getPlatformConfig } from "@/config/platformConfigs";
-import { useListingCounts } from "@/hooks/useListingCounts";
+import { useListingCounts, useMasterListingCounts } from "@/hooks/useListingCounts";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CopyToShopPopup } from "@/components/inventory/CopyToShopPopup";
 import { ConnectShopDialog } from "@/components/connections/ConnectShopDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 
 interface VelaSidebarProps {
   className?: string;
@@ -28,10 +35,10 @@ const allPlatforms = [
 // Status filter items
 const statusItems = [
   { key: "all", label: "Tüm Ürünler" },
-  { key: "active", label: "Active", color: "bg-success" },
-  { key: "draft", label: "Draft", color: "bg-warning" },
-  { key: "inactive", label: "Inactive", color: "bg-muted-foreground" },
-  { key: "copy", label: "Copy", color: "bg-primary" },
+  { key: "active", label: "Active", color: "bg-green-500" },
+  { key: "draft", label: "Draft", color: "bg-amber-500" },
+  { key: "inactive", label: "Inactive", color: "bg-gray-400" },
+  { key: "copy", label: "Copy", color: "bg-green-500" },
   { key: "imported", label: "Imported", color: "bg-purple-500" },
   { key: "staging", label: "Staging", color: "bg-blue-500" },
 ];
@@ -41,16 +48,18 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
   const location = useLocation();
   const { shops, selectedShop, setSelectedShop, isMasterView } = useShop();
   
-  const [shopDropdownOpen, setShopDropdownOpen] = useState(true);
   const [inactiveShopsOpen, setInactiveShopsOpen] = useState(true);
+  const [newShopsOpen, setNewShopsOpen] = useState(true);
   const [statusOpen, setStatusOpen] = useState(true);
+  const [categoryOpen, setCategoryOpen] = useState(true);
   const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [connectPlatform, setConnectPlatform] = useState<string | null>(null);
   const [copyPopupTarget, setCopyPopupTarget] = useState<typeof allPlatforms[0] | null>(null);
 
   // Get listing counts for selected shop
-  const selectedShopId = isMasterView ? null : selectedShop.id;
-  const { counts } = useListingCounts(selectedShopId);
+  const selectedShopId = isMasterView ? null : (selectedShop.id !== 'master' ? selectedShop.id : null);
+  const { counts, categoryCounts } = useListingCounts(selectedShopId);
+  const { counts: masterCounts } = useMasterListingCounts();
 
   // Get status from URL
   const searchParams = new URLSearchParams(location.search);
@@ -96,197 +105,299 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
     }
   };
 
+  const currentCounts = isMasterView ? masterCounts : counts;
+
   return (
     <>
       <div className={cn(
         "w-56 bg-sidebar border-r border-sidebar-border flex flex-col h-full",
         className
       )}>
-        {/* Master Listings - Fixed at top */}
-        <div 
-          className={cn(
-            "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-sidebar-border",
-            isMasterView 
-              ? "bg-sidebar-accent" 
-              : "hover:bg-sidebar-accent/50"
-          )}
-          onClick={handleSelectMaster}
-        >
-          <div 
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-            style={{ backgroundColor: '#8B5CF6' }}
-          >
-            M
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium text-sidebar-foreground">Master Listings</span>
-          </div>
-          <span className="text-xs text-sidebar-muted">{counts?.all || 0}</span>
-        </div>
-
-        {/* Active Shop Dropdown */}
-        <Collapsible open={shopDropdownOpen} onOpenChange={setShopDropdownOpen}>
-          <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-3 hover:bg-sidebar-accent/50 transition-colors">
-            <div className="flex items-center gap-3">
+        {/* Shop Dropdown Selector */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-full flex items-center gap-3 p-3 hover:bg-sidebar-accent transition-colors text-left border-b border-sidebar-border">
               {!isMasterView && selectedShop.id !== 'master' ? (
                 <>
                   <div 
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm"
                     style={{ backgroundColor: selectedShop.color }}
                   >
                     {selectedShop.icon}
                   </div>
-                  <div className="flex flex-col items-start">
-                    <span className="text-sm font-medium text-sidebar-foreground">{selectedShop.name}</span>
+                  <div className="flex-1 min-w-0">
                     <span className="text-xs text-sidebar-muted">{selectedShop.platform}</span>
+                    <p className="text-sm font-medium text-sidebar-foreground truncate">{selectedShop.name}</p>
                   </div>
                 </>
               ) : (
-                <span className="text-sm font-medium text-sidebar-foreground">Mağazalar</span>
+                <>
+                  <div 
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm"
+                    style={{ backgroundColor: '#8B5CF6' }}
+                  >
+                    M
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs text-sidebar-muted">Hub</span>
+                    <p className="text-sm font-medium text-sidebar-foreground">Master Listings</p>
+                  </div>
+                </>
               )}
-            </div>
-            <ChevronDown className={cn(
-              "h-4 w-4 text-sidebar-muted transition-transform",
-              shopDropdownOpen && "rotate-180"
-            )} />
-          </CollapsibleTrigger>
+              <ChevronDown className="h-4 w-4 text-sidebar-muted shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
 
-          <CollapsibleContent className="border-b border-sidebar-border">
-            {/* Connected Shops */}
-            {connectedShops.map((shop) => (
-              <div
-                key={shop.id}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors",
-                  selectedShop.id === shop.id && !isMasterView
-                    ? "bg-sidebar-accent"
-                    : "hover:bg-sidebar-accent/50"
-                )}
-                onClick={() => handleSelectShop(shop)}
+          <DropdownMenuContent 
+            align="start" 
+            className="w-56 bg-popover border border-border shadow-lg z-50"
+            sideOffset={4}
+          >
+            {/* Master Listings */}
+            <DropdownMenuItem 
+              onClick={handleSelectMaster}
+              className="flex items-center gap-3 p-2 cursor-pointer"
+            >
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                style={{ backgroundColor: '#8B5CF6' }}
               >
-                <div 
-                  className="w-6 h-6 rounded flex items-center justify-center text-white font-bold text-xs"
-                  style={{ backgroundColor: shop.color }}
-                >
-                  {shop.icon}
-                </div>
-                <span className="text-sm text-sidebar-foreground flex-1">{shop.name}</span>
-                <div className="w-2 h-2 rounded-full bg-success" title="Connected" />
+                M
               </div>
-            ))}
+              <div className="flex-1">
+                <p className="text-sm font-medium">Master Listings</p>
+              </div>
+              <span className="text-xs text-muted-foreground">{masterCounts.all}</span>
+            </DropdownMenuItem>
 
-            {connectedShops.length === 0 && (
-              <div className="px-4 py-2 text-xs text-sidebar-muted">
-                Henüz bağlı mağaza yok
-              </div>
+            {connectedShops.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                {connectedShops.map((shop) => (
+                  <DropdownMenuItem
+                    key={shop.id}
+                    onClick={() => handleSelectShop(shop)}
+                    className="flex items-center gap-3 p-2 cursor-pointer"
+                  >
+                    <div 
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
+                      style={{ backgroundColor: shop.color }}
+                    >
+                      {shop.icon}
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-xs text-muted-foreground">{shop.platform}</span>
+                      <p className="text-sm font-medium">{shop.name}</p>
+                    </div>
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                  </DropdownMenuItem>
+                ))}
+              </>
             )}
-          </CollapsibleContent>
-        </Collapsible>
 
-        {/* Inactive Shops */}
-        <Collapsible open={inactiveShopsOpen} onOpenChange={setInactiveShopsOpen}>
-          <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2 hover:bg-sidebar-accent/50 transition-colors">
-            <span className="text-xs font-medium text-sidebar-muted uppercase tracking-wider">Inactive shops</span>
-            <ChevronDown className={cn(
-              "h-3 w-3 text-sidebar-muted transition-transform",
-              inactiveShopsOpen && "rotate-180"
-            )} />
-          </CollapsibleTrigger>
-
-          <CollapsibleContent>
-            {inactivePlatforms.map((platform) => (
-              <div
-                key={platform.id}
-                className="flex items-center gap-2 px-4 py-2 hover:bg-sidebar-accent/50 transition-colors group"
-              >
-                <div 
-                  className="w-6 h-6 rounded flex items-center justify-center text-white font-bold text-xs opacity-50"
-                  style={{ backgroundColor: platform.color }}
-                >
-                  {platform.icon}
-                </div>
-                <span className="text-sm text-sidebar-muted flex-1">{platform.name}</span>
-                
-                {/* Action buttons */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    className="w-6 h-6 rounded flex items-center justify-center bg-sidebar-accent hover:bg-primary/20 transition-colors"
+            {/* Inactive Shops */}
+            {inactivePlatforms.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground px-2">
+                  Inactive shops
+                </DropdownMenuLabel>
+                {inactivePlatforms.slice(0, 3).map((platform) => (
+                  <DropdownMenuItem
+                    key={platform.id}
+                    className="flex items-center gap-3 p-2 cursor-pointer"
                     onClick={(e) => {
-                      e.stopPropagation();
+                      e.preventDefault();
                       handleConnectClick(platform.id);
                     }}
-                    title="Connect"
+                  >
+                    <div 
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs opacity-60"
+                      style={{ backgroundColor: platform.color }}
+                    >
+                      {platform.icon}
+                    </div>
+                    <span className="text-sm text-muted-foreground flex-1">{platform.name}</span>
+                    <Plus className="h-4 w-4 text-muted-foreground" />
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Inactive Shops Section */}
+          <Collapsible open={inactiveShopsOpen} onOpenChange={setInactiveShopsOpen}>
+            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-sidebar-accent transition-colors">
+              <span className="text-xs font-medium text-sidebar-muted">Inactive shops</span>
+              <ChevronDown className={cn(
+                "h-3.5 w-3.5 text-sidebar-muted transition-transform",
+                inactiveShopsOpen && "rotate-180"
+              )} />
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              {inactivePlatforms.map((platform) => (
+                <div
+                  key={platform.id}
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-sidebar-accent transition-colors group"
+                >
+                  <div 
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs opacity-50"
+                    style={{ backgroundColor: platform.color }}
+                  >
+                    {platform.icon}
+                  </div>
+                  <span className="text-sm text-sidebar-muted flex-1">{platform.name}</span>
+                  
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      className="w-7 h-7 rounded-md flex items-center justify-center bg-sidebar-accent hover:bg-border transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleConnectClick(platform.id);
+                      }}
+                      title="Connect"
+                    >
+                      <Plus className="h-3.5 w-3.5 text-sidebar-foreground" />
+                    </button>
+                    <button
+                      className="w-7 h-7 rounded-md flex items-center justify-center bg-green-100 hover:bg-green-200 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCopyClick(platform);
+                      }}
+                      title="Copy listings"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5 text-green-600" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* New Shops Section */}
+          <Collapsible open={newShopsOpen} onOpenChange={setNewShopsOpen}>
+            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-sidebar-accent transition-colors">
+              <span className="text-xs font-medium text-sidebar-muted">New shops</span>
+              <ChevronDown className={cn(
+                "h-3.5 w-3.5 text-sidebar-muted transition-transform",
+                newShopsOpen && "rotate-180"
+              )} />
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              {allPlatforms.slice(0, 4).map((platform) => (
+                <div
+                  key={`new-${platform.id}`}
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-sidebar-accent transition-colors group"
+                >
+                  <div 
+                    className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden"
+                    style={{ backgroundColor: platform.color }}
+                  >
+                    <span className="text-white font-bold text-xs">{platform.icon}</span>
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-xs text-sidebar-muted">{platform.name}</span>
+                    <p className="text-sm text-sidebar-foreground">New shop</p>
+                  </div>
+                  
+                  <button
+                    className="w-7 h-7 rounded-md flex items-center justify-center bg-sidebar-accent hover:bg-border transition-colors"
+                    onClick={() => handleConnectClick(platform.id)}
                   >
                     <Plus className="h-3.5 w-3.5 text-sidebar-foreground" />
                   </button>
-                  <button
-                    className="w-6 h-6 rounded flex items-center justify-center bg-success/20 hover:bg-success/30 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCopyClick(platform);
-                    }}
-                    title="Copy listings"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5 text-success" />
-                  </button>
                 </div>
-              </div>
-            ))}
-          </CollapsibleContent>
-        </Collapsible>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
 
-        {/* Divider */}
-        <div className="border-t border-sidebar-border my-2" />
-
-        {/* Status Filters */}
-        <Collapsible open={statusOpen} onOpenChange={setStatusOpen}>
-          <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2 hover:bg-sidebar-accent/50 transition-colors">
-            <span className="text-xs font-medium text-sidebar-muted uppercase tracking-wider">Listing Status</span>
-            <ChevronDown className={cn(
-              "h-3 w-3 text-sidebar-muted transition-transform",
-              statusOpen && "rotate-180"
-            )} />
-          </CollapsibleTrigger>
-
-          <CollapsibleContent>
-            {statusItems.map((item) => (
-              <div
-                key={item.key}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors",
-                  currentStatus === item.key
-                    ? "bg-sidebar-accent"
-                    : "hover:bg-sidebar-accent/50"
-                )}
-                onClick={() => handleStatusChange(item.key)}
-              >
-                {item.color && (
-                  <div className={cn("w-2 h-2 rounded-full", item.color)} />
-                )}
-                <span className="text-sm text-sidebar-foreground flex-1">{item.label}</span>
-                <span className="text-xs text-sidebar-muted">
-                  {item.key === 'all' ? counts?.all || 0 :
-                   item.key === 'active' ? counts?.active || 0 :
-                   item.key === 'draft' ? counts?.draft || 0 :
-                   item.key === 'inactive' ? counts?.inactive || 0 :
-                   item.key === 'copy' ? counts?.copy || 0 :
-                   item.key === 'imported' ? counts?.imported || 0 :
-                   item.key === 'staging' ? counts?.staging || 0 : 0}
-                </span>
-              </div>
-            ))}
-          </CollapsibleContent>
-        </Collapsible>
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Waitlist section */}
-        <div className="px-4 py-3 border-t border-sidebar-border">
-          <div className="flex items-center gap-2 text-sidebar-muted">
-            <span className="text-xs">⌛</span>
-            <span className="text-xs">Waitlist</span>
+          {/* Waitlist Button */}
+          <div className="px-4 py-2">
+            <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-sidebar-accent hover:bg-border transition-colors">
+              <Clock className="h-4 w-4 text-sidebar-muted" />
+              <span className="text-sm text-sidebar-muted">Waitlist</span>
+            </button>
           </div>
+
+          {/* Divider */}
+          <div className="border-t border-sidebar-border my-2" />
+
+          {/* Status Filters */}
+          <Collapsible open={statusOpen} onOpenChange={setStatusOpen}>
+            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-sidebar-accent transition-colors">
+              <span className="text-xs font-medium text-sidebar-muted uppercase tracking-wider">Listing Status</span>
+              <ChevronDown className={cn(
+                "h-3.5 w-3.5 text-sidebar-muted transition-transform",
+                statusOpen && "rotate-180"
+              )} />
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              {statusItems.map((item) => (
+                <div
+                  key={item.key}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors",
+                    currentStatus === item.key
+                      ? "bg-sidebar-accent"
+                      : "hover:bg-sidebar-accent/50"
+                  )}
+                  onClick={() => handleStatusChange(item.key)}
+                >
+                  {item.color && (
+                    <div className={cn("w-2 h-2 rounded-full", item.color)} />
+                  )}
+                  <span className="text-sm text-sidebar-foreground flex-1">{item.label}</span>
+                  <span className="text-xs text-sidebar-muted">
+                    {item.key === 'all' ? currentCounts?.all || 0 :
+                     item.key === 'active' ? currentCounts?.active || 0 :
+                     item.key === 'draft' ? currentCounts?.draft || 0 :
+                     item.key === 'inactive' ? currentCounts?.inactive || 0 :
+                     item.key === 'copy' ? currentCounts?.copy || 0 :
+                     item.key === 'imported' ? currentCounts?.imported || 0 :
+                     item.key === 'staging' ? currentCounts?.staging || 0 : 0}
+                  </span>
+                </div>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Category Filters */}
+          <Collapsible open={categoryOpen} onOpenChange={setCategoryOpen}>
+            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-sidebar-accent transition-colors">
+              <span className="text-xs font-medium text-sidebar-muted uppercase tracking-wider">Category</span>
+              <ChevronDown className={cn(
+                "h-3.5 w-3.5 text-sidebar-muted transition-transform",
+                categoryOpen && "rotate-180"
+              )} />
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              {categoryCounts.length > 0 ? (
+                categoryCounts.map((cat) => (
+                  <div
+                    key={cat.category}
+                    className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-sidebar-accent/50 transition-colors"
+                  >
+                    <div className="w-4 h-4 rounded border border-sidebar-border" />
+                    <span className="text-sm text-sidebar-foreground flex-1 truncate">{cat.category}</span>
+                    <span className="text-xs text-sidebar-muted">{cat.count}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="px-4 py-2 text-xs text-sidebar-muted">
+                  Henüz kategori yok
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </div>
 
