@@ -131,20 +131,31 @@ export function useMarketplaceConnections() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Use shop_connections table instead of non-existent marketplace_connections
   const { data: connections = [], isLoading, error } = useQuery({
     queryKey: ["marketplace-connections", user?.id],
     queryFn: async () => {
       if (!user) return [];
       
       const { data, error } = await supabase
-        .from("marketplace_connections")
+        .from("shop_connections")
         .select("*")
         .eq("user_id", user.id);
 
       if (error) throw error;
       
-      // Type assertion since DB returns generic types
-      return data as unknown as MarketplaceConnection[];
+      // Map shop_connections to MarketplaceConnection interface
+      return (data || []).map(conn => ({
+        id: conn.id,
+        user_id: conn.user_id,
+        marketplace: conn.platform as MarketplaceId,
+        store_name: conn.shop_name,
+        credentials: (conn.api_credentials || {}) as Record<string, string>,
+        is_active: conn.is_connected,
+        last_sync_at: conn.last_sync_at,
+        created_at: conn.created_at,
+        updated_at: conn.updated_at,
+      })) as MarketplaceConnection[];
     },
     enabled: !!user,
   });
@@ -166,24 +177,24 @@ export function useMarketplaceConnections() {
 
       if (existing) {
         const { error } = await supabase
-          .from("marketplace_connections")
+          .from("shop_connections")
           .update({
-            credentials,
-            store_name: storeName || null,
-            is_active: true,
+            api_credentials: credentials,
+            shop_name: storeName || existing.store_name,
+            is_connected: true,
           })
           .eq("id", existing.id);
 
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from("marketplace_connections")
+          .from("shop_connections")
           .insert({
             user_id: user.id,
-            marketplace,
-            credentials,
-            store_name: storeName || null,
-            is_active: true,
+            platform: marketplace,
+            api_credentials: credentials,
+            shop_name: storeName || marketplace,
+            is_connected: true,
           });
 
         if (error) throw error;
@@ -254,7 +265,7 @@ export function useMarketplaceConnections() {
 
       // Update last_sync_at
       await supabase
-        .from("marketplace_connections")
+        .from("shop_connections")
         .update({ last_sync_at: new Date().toISOString() })
         .eq("id", connection.id);
 
@@ -282,7 +293,7 @@ export function useMarketplaceConnections() {
       if (!connection) return;
 
       const { error } = await supabase
-        .from("marketplace_connections")
+        .from("shop_connections")
         .delete()
         .eq("id", connection.id);
 

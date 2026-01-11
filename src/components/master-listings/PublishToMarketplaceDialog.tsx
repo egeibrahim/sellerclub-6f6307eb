@@ -56,11 +56,6 @@ export function PublishToMarketplaceDialog({
     ? MARKETPLACE_CONFIGS.find(m => m.id === selectedMarketplace.marketplace)
     : null;
 
-  // Already published to this marketplace?
-  const isAlreadyPublished = (connectionId: string) => {
-    return listing?.marketplace_products?.some(mp => mp.marketplace_connection_id === connectionId);
-  };
-
   // Handle channel selection
   const handleSelectChannel = (connectionId: string) => {
     setSelectedConnection(connectionId);
@@ -87,23 +82,30 @@ export function PublishToMarketplaceDialog({
 
     setIsPublishing(true);
     try {
-      // Create marketplace_product record
+      // Create marketplace_listings record instead of marketplace_products
+      const connection = connections.find(c => c.id === selectedConnection);
       const { error: insertError } = await supabase
-        .from('marketplace_products')
+        .from('marketplace_listings')
         .insert({
           user_id: user.id,
-          master_listing_id: listing.id,
-          marketplace_connection_id: selectedConnection,
-          remote_category_id: selectedCategory.category_id,
-          remote_category_name: selectedCategory.full_path,
-          price_markup: priceMarkup,
+          master_product_id: listing.id,
+          shop_connection_id: selectedConnection,
+          platform: connection?.marketplace || 'unknown',
+          title: listing.title,
+          description: listing.description,
+          price: (listing.price || 0) + priceMarkup,
+          status: 'pending',
           sync_status: 'pending',
+          marketplace_data: {
+            category_id: selectedCategory.category_id,
+            category_name: selectedCategory.full_path,
+            price_markup: priceMarkup,
+          },
         });
 
       if (insertError) throw insertError;
 
       // Call sync function to push product
-      const connection = connections.find(c => c.id === selectedConnection);
       if (connection) {
         let functionName = '';
         switch (connection.marketplace) {
@@ -122,7 +124,8 @@ export function PublishToMarketplaceDialog({
         }
 
         if (functionName) {
-          const primaryImage = listing.images?.find(img => img.is_primary) || listing.images?.[0];
+          const images = listing.images as any[] || [];
+          const primaryImage = images.find((img: any) => img.is_primary) || images[0];
           
           await supabase.functions.invoke(functionName, {
             body: {
@@ -131,12 +134,12 @@ export function PublishToMarketplaceDialog({
               product: {
                 title: listing.title,
                 description: listing.description,
-                price: listing.base_price + priceMarkup,
-                stock: listing.total_stock,
-                sku: listing.internal_sku,
+                price: (listing.price || 0) + priceMarkup,
+                stock: 0,
+                sku: listing.sku,
                 brand: listing.brand,
                 categoryId: selectedCategory.category_id,
-                images: listing.images?.map(img => img.url) || [],
+                images: images.map((img: any) => img.url) || [],
                 primaryImage: primaryImage?.url,
               }
             }
@@ -185,19 +188,15 @@ export function PublishToMarketplaceDialog({
               <div className="grid gap-2">
                 {activeConnections.map((connection) => {
                   const config = MARKETPLACE_CONFIGS.find(m => m.id === connection.marketplace);
-                  const alreadyPublished = isAlreadyPublished(connection.id);
                   
                   return (
                     <button
                       key={connection.id}
-                      onClick={() => !alreadyPublished && handleSelectChannel(connection.id)}
-                      disabled={alreadyPublished}
+                      onClick={() => handleSelectChannel(connection.id)}
                       className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
                         selectedConnection === connection.id 
                           ? 'border-primary bg-primary/5' 
-                          : alreadyPublished 
-                            ? 'opacity-50 cursor-not-allowed border-muted'
-                            : 'hover:bg-muted/50'
+                          : 'hover:bg-muted/50'
                       }`}
                     >
                       <div 
@@ -212,11 +211,9 @@ export function PublishToMarketplaceDialog({
                           <p className="text-sm text-muted-foreground">{connection.store_name}</p>
                         )}
                       </div>
-                      {alreadyPublished ? (
-                        <Badge variant="secondary">Yayında</Badge>
-                      ) : selectedConnection === connection.id ? (
+                      {selectedConnection === connection.id && (
                         <Check className="h-5 w-5 text-primary" />
-                      ) : null}
+                      )}
                     </button>
                   );
                 })}
@@ -244,7 +241,7 @@ export function PublishToMarketplaceDialog({
             <CategoryMappingPanel
               productTitle={listing.title}
               productDescription={listing.description || undefined}
-              sourceCategoryPath={listing.source_category_path || undefined}
+              sourceCategoryPath={listing.category || undefined}
               targetMarketplace={selectedMarketplace.marketplace}
               onCategorySelect={setSelectedCategory}
               selectedCategory={selectedCategory}
@@ -286,7 +283,7 @@ export function PublishToMarketplaceDialog({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Baz Fiyat</span>
-                <span className="font-medium">₺{listing.base_price.toLocaleString('tr-TR')}</span>
+                <span className="font-medium">₺{(listing.price || 0).toLocaleString('tr-TR')}</span>
               </div>
             </div>
 
@@ -300,7 +297,7 @@ export function PublishToMarketplaceDialog({
                   className="w-32"
                 />
                 <span className="text-sm text-muted-foreground">
-                  = ₺{(listing.base_price + priceMarkup).toLocaleString('tr-TR')}
+                  = ₺{((listing.price || 0) + priceMarkup).toLocaleString('tr-TR')}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">

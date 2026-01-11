@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 export interface Order {
   id: string;
@@ -47,26 +48,23 @@ export interface OrderItem {
   variant?: string;
 }
 
+// Mock orders data - will be replaced with real DB table in future
+function generateMockOrders(): Order[] {
+  return [];
+}
+
 export function useOrders() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [localOrders, setLocalOrders] = useState<Order[]>([]);
 
-  const { data: orders, isLoading, error } = useQuery({
+  // Since orders table doesn't exist, return empty array
+  const { data: orders = [], isLoading, error } = useQuery({
     queryKey: ['orders', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('order_date', { ascending: false });
-
-      if (error) throw error;
-      return (data || []).map(row => ({
-        ...row,
-        items: (Array.isArray(row.items) ? row.items : []) as unknown as OrderItem[],
-        shipping_address: (row.shipping_address || {}) as Record<string, any>,
-        billing_address: (row.billing_address || {}) as Record<string, any>,
-        marketplace_data: (row.marketplace_data || {}) as Record<string, any>,
-      })) as Order[];
+      if (!user) return [];
+      // Return mock/empty data since orders table doesn't exist
+      return generateMockOrders();
     },
     enabled: !!user,
   });
@@ -84,34 +82,39 @@ export function useOrders() {
 
       if (error) throw error;
       
+      // Store orders in local state since table doesn't exist
       if (data?.orders) {
-        for (const order of data.orders) {
-          await supabase.from('orders').upsert({
-            user_id: user!.id,
-            marketplace_connection_id: connectionId,
-            marketplace,
-            remote_order_id: order.id || order.orderId || order.orderNumber,
-            order_number: order.orderNumber || order.order_number,
-            status: order.status || 'pending',
-            customer_name: order.customerName || order.customer?.name,
-            customer_email: order.customerEmail || order.customer?.email,
-            customer_phone: order.customerPhone || order.customer?.phone,
-            shipping_address: order.shippingAddress || order.shipping_address || {},
-            billing_address: order.billingAddress || order.billing_address || {},
-            items: order.items || order.lines || [],
-            subtotal: order.subtotal || 0,
-            shipping_cost: order.shippingCost || order.shipping_cost || 0,
-            tax_amount: order.taxAmount || order.tax_amount || 0,
-            total_amount: order.totalAmount || order.total_amount || order.total || 0,
-            currency: order.currency || 'TRY',
-            payment_method: order.paymentMethod || order.payment_method,
-            payment_status: order.paymentStatus || order.payment_status,
-            order_date: order.orderDate || order.order_date || order.createdAt || new Date().toISOString(),
-            marketplace_data: order,
-          }, {
-            onConflict: 'user_id,marketplace,remote_order_id',
-          });
-        }
+        const mappedOrders: Order[] = data.orders.map((order: any) => ({
+          id: order.id || order.orderId || crypto.randomUUID(),
+          user_id: user!.id,
+          marketplace_connection_id: connectionId,
+          marketplace,
+          remote_order_id: order.id || order.orderId || order.orderNumber,
+          order_number: order.orderNumber || order.order_number,
+          status: order.status || 'pending',
+          customer_name: order.customerName || order.customer?.name,
+          customer_email: order.customerEmail || order.customer?.email,
+          customer_phone: order.customerPhone || order.customer?.phone,
+          shipping_address: order.shippingAddress || order.shipping_address || {},
+          billing_address: order.billingAddress || order.billing_address || {},
+          items: order.items || order.lines || [],
+          subtotal: order.subtotal || 0,
+          shipping_cost: order.shippingCost || order.shipping_cost || 0,
+          tax_amount: order.taxAmount || order.tax_amount || 0,
+          total_amount: order.totalAmount || order.total_amount || order.total || 0,
+          currency: order.currency || 'TRY',
+          payment_method: order.paymentMethod || order.payment_method,
+          payment_status: order.paymentStatus || order.payment_status,
+          notes: null,
+          order_date: order.orderDate || order.order_date || order.createdAt || new Date().toISOString(),
+          shipped_date: null,
+          delivered_date: null,
+          cancelled_date: null,
+          marketplace_data: order,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }));
+        setLocalOrders(prev => [...prev, ...mappedOrders]);
       }
 
       return data;
@@ -127,21 +130,18 @@ export function useOrders() {
 
   const updateOrderStatus = useMutation({
     mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
-      const updates: Record<string, any> = { status };
-      
-      if (status === 'shipped') updates.shipped_date = new Date().toISOString();
-      if (status === 'delivered') updates.delivered_date = new Date().toISOString();
-      if (status === 'cancelled') updates.cancelled_date = new Date().toISOString();
-
-      const { data, error } = await supabase
-        .from('orders')
-        .update(updates)
-        .eq('id', orderId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      // Update in local state since table doesn't exist
+      setLocalOrders(prev => prev.map(order => {
+        if (order.id === orderId) {
+          const updates: Partial<Order> = { status };
+          if (status === 'shipped') updates.shipped_date = new Date().toISOString();
+          if (status === 'delivered') updates.delivered_date = new Date().toISOString();
+          if (status === 'cancelled') updates.cancelled_date = new Date().toISOString();
+          return { ...order, ...updates };
+        }
+        return order;
+      }));
+      return { id: orderId, status };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -153,7 +153,7 @@ export function useOrders() {
   });
 
   return {
-    orders: orders || [],
+    orders: [...orders, ...localOrders],
     isLoading,
     error,
     syncOrders,
