@@ -19,12 +19,14 @@ import {
   GitMerge,
   ExternalLink,
   Send,
+  Upload,
 } from "lucide-react";
 import { BulkActionBar } from "./BulkActionBar";
 import { ProductSidePanel } from "./ProductSidePanel";
 import { ShopRefreshDialog } from "./ShopRefreshDialog";
 import { CopyListingDialog } from "./CopyListingDialog";
 import { PublishDropdown } from "./PublishDropdown";
+import { FileImportWizard } from "@/components/import/FileImportWizard";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -121,6 +123,7 @@ export function ProductGrid() {
   const [currentPage, setCurrentPage] = useState(1);
   const [hoveredProductId, setHoveredProductId] = useState<string | null>(null);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
+  const [showImportWizard, setShowImportWizard] = useState(false);
 
   // Get shop connections for copy dialog
   const { shops } = useShop();
@@ -305,8 +308,12 @@ export function ProductGrid() {
           <Button variant="ghost" size="icon" className="h-9 w-9">
             <Search className="h-4 w-4" />
           </Button>
-          <Button variant="outline" className="h-9 gap-2">
-            <Download className="h-4 w-4" />
+          <Button 
+            variant="outline" 
+            className="h-9 gap-2"
+            onClick={() => setShowImportWizard(true)}
+          >
+            <Upload className="h-4 w-4" />
             Import
           </Button>
           <Button 
@@ -619,6 +626,14 @@ export function ProductGrid() {
         }}
         progress={progress}
         onRetry={handleRetrySync}
+      />
+
+      {/* Import Wizard */}
+      <FileImportWizard
+        open={showImportWizard}
+        onOpenChange={setShowImportWizard}
+        targetShopId={selectedShop.id !== 'master' ? selectedShop.id : null}
+        targetPlatform={selectedShop.platform}
       />
     </div>
   );

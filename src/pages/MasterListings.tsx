@@ -4,14 +4,21 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, Package, Loader2, Download, Send, X } from "lucide-react";
+import { Plus, Search, Package, Loader2, Download, Send, X, Upload } from "lucide-react";
 import { useMasterListings, type MasterListing } from "@/hooks/useMasterListings";
 import { MasterListingCard } from "@/components/master-listings/MasterListingCard";
 import { MasterListingDialog } from "@/components/master-listings/MasterListingDialog";
 import { ImportWizard } from "@/components/master-listings/ImportWizard";
+import { FileImportWizard } from "@/components/import/FileImportWizard";
 import { PublishToMarketplaceDialog } from "@/components/master-listings/PublishToMarketplaceDialog";
 import { BulkPublishDialog } from "@/components/master-listings/BulkPublishDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function MasterListings() {
   const navigate = useNavigate();
@@ -37,6 +44,7 @@ export default function MasterListings() {
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPublishDialogOpen, setBulkPublishDialogOpen] = useState(false);
+  const [fileImportWizardOpen, setFileImportWizardOpen] = useState(false);
 
   const filteredListings = masterListings.filter(listing =>
     listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -137,10 +145,24 @@ export default function MasterListings() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setImportWizardOpen(true)}>
-              <Download className="h-4 w-4 mr-2" />
-              İthal Et
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Upload className="h-4 w-4 mr-2" />
+                  İthal Et
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setImportWizardOpen(true)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Pazaryerinden Çek
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFileImportWizardOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  CSV/Excel Yükle
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={handleCreate}>
               <Plus className="h-4 w-4 mr-2" />
               Yeni Ürün
@@ -262,8 +284,11 @@ export default function MasterListings() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Import Wizard */}
+      {/* Import Wizard - From Marketplace */}
       <ImportWizard open={importWizardOpen} onOpenChange={setImportWizardOpen} />
+
+      {/* File Import Wizard - CSV/Excel */}
+      <FileImportWizard open={fileImportWizardOpen} onOpenChange={setFileImportWizardOpen} />
 
       {/* Publish Dialog */}
       <PublishToMarketplaceDialog 
