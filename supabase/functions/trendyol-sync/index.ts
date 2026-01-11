@@ -71,13 +71,13 @@ serve(async (req) => {
 
     const action = body.action || "push_products";
 
-    // Prefer per-user credentials coming from the client; fall back to environment variables for backwards compatibility.
+    // Prefer per-user credentials coming from the client; fall back to server-side environment variables.
     const supplierId =
       body.credentials?.seller_id ||
       body.credentials?.supplier_id ||
-      Deno.env.get("VITE_TRENDYOL_PARTNER_ID");
-    const apiKey = body.credentials?.api_key || Deno.env.get("VITE_TRENDYOL_API_KEY");
-    const apiSecret = body.credentials?.api_secret || Deno.env.get("VITE_TRENDYOL_API_SECRET");
+      Deno.env.get("TRENDYOL_SELLER_ID");
+    const apiKey = body.credentials?.api_key || Deno.env.get("TRENDYOL_API_KEY");
+    const apiSecret = body.credentials?.api_secret || Deno.env.get("TRENDYOL_API_SECRET");
 
     console.log("=== Trendyol Sync Edge Function ===");
     console.log("Using body credentials:", {
