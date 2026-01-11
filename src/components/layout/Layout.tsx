@@ -19,6 +19,30 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
   const { syncBidirectional, isLoading: isSyncing } = useMarketplaceSync();
   
   const [showConnectDialog, setShowConnectDialog] = useState(false);
+  const [connectPlatformId, setConnectPlatformId] = useState<string | null>(null);
+
+  // Get platform ID from selected shop
+  const getSelectedPlatformId = () => {
+    const platformMap: Record<string, string> = {
+      'Etsy': 'etsy',
+      'Amazon': 'amazon',
+      'Shopify': 'shopify',
+      'Trendyol': 'trendyol',
+      'Hepsiburada': 'hepsiburada',
+      'ikas': 'ikas',
+      'N11': 'n11',
+      'Çiçeksepeti': 'ciceksepeti',
+      'Ticimax': 'ticimax',
+      'T-Soft': 'tsoft',
+      'IdeaSoft': 'ideasoft',
+    };
+    return platformMap[selectedShop.platform] || null;
+  };
+
+  const handleOpenConnectDialog = () => {
+    setConnectPlatformId(getSelectedPlatformId());
+    setShowConnectDialog(true);
+  };
 
   // Convert Shop to ShopConnection format for components
   const selectedShopConnection = selectedShop.id !== 'master' ? {
@@ -66,7 +90,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
             <ShopHeader
               shop={selectedShopConnection}
               onSync={handleSync}
-              onManageConnection={() => setShowConnectDialog(true)}
+              onManageConnection={handleOpenConnectDialog}
               isSyncing={isSyncing}
               listingRoute={selectedShop.listingRoute}
             />
@@ -74,7 +98,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
               <ConnectBanner
                 platform={selectedShop.platform}
                 platformColor={selectedShop.color}
-                onConnect={() => setShowConnectDialog(true)}
+                onConnect={handleOpenConnectDialog}
               />
             )}
           </>
@@ -101,7 +125,11 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
       {/* Connect Shop Dialog */}
       <ConnectShopDialog
         open={showConnectDialog}
-        onOpenChange={setShowConnectDialog}
+        onOpenChange={(open) => {
+          setShowConnectDialog(open);
+          if (!open) setConnectPlatformId(null);
+        }}
+        initialPlatform={connectPlatformId}
       />
     </div>
   );
