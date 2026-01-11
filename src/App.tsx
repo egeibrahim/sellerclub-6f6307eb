@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Inventory from "./pages/Inventory";
 import ListingNew from "./pages/ListingNew";
+import UniversalListingNew from "./pages/UniversalListingNew";
 import TrendyolListingNew from "./pages/TrendyolListingNew";
 import HepsiburadaListingNew from "./pages/HepsiburadaListingNew";
 import IkasListingNew from "./pages/IkasListingNew";
@@ -58,31 +59,15 @@ const App = () => (
               path="/inventory/new"
               element={
                 <ProtectedRoute>
-                  <ListingNew />
+                  <UniversalListingNew />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/inventory/new/trendyol"
+              path="/inventory/new/:platform"
               element={
                 <ProtectedRoute>
-                  <TrendyolListingNew />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/inventory/new/hepsiburada"
-              element={
-                <ProtectedRoute>
-                  <HepsiburadaListingNew />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/inventory/new/ikas"
-              element={
-                <ProtectedRoute>
-                  <IkasListingNew />
+                  <UniversalListingNew />
                 </ProtectedRoute>
               }
             />
