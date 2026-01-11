@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback } from "react";
-import { Image, X, Loader2, Upload, GripVertical, AlertCircle } from "lucide-react";
+import { Image, X, Loader2, Upload, GripVertical, AlertCircle, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { ImageLibraryDialog } from "../ImageLibraryDialog";
 import type { PlatformConfig } from "@/config/platformConfigs";
 
 interface PhotosSectionProps {
@@ -36,6 +38,7 @@ export function PhotosSection({
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingImages, setUploadingImages] = useState<UploadingImage[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
 
   const validateFile = (file: File): string | null => {
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -231,6 +234,13 @@ export function PhotosSection({
     setDraggedIndex(null);
   };
 
+  // Handle selecting from library
+  const handleLibrarySelect = (urls: string[]) => {
+    const newImages = [...images, ...urls].slice(0, config.maxImages);
+    onImagesChange(newImages);
+    toast.success(`${urls.length} görsel eklendi`);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -272,13 +282,24 @@ export function PhotosSection({
           <p className="text-xs text-muted-foreground mb-3">
             veya
           </p>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            Dosya Seç
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              Dosya Seç
+            </button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowLibrary(true)}
+              className="gap-2"
+            >
+              <FolderOpen className="h-4 w-4" />
+              Kütüphaneden Seç
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground mt-3">
             JPG, PNG, WEBP veya GIF • Maksimum 10MB
           </p>
@@ -397,6 +418,15 @@ export function PhotosSection({
       <p className="text-xs text-muted-foreground mt-3">
         İlk görsel ana görsel olarak kullanılır. Sıralamayı değiştirmek için görselleri sürükleyip bırakın.
       </p>
+
+      {/* Image Library Dialog */}
+      <ImageLibraryDialog
+        open={showLibrary}
+        onOpenChange={setShowLibrary}
+        onSelect={handleLibrarySelect}
+        maxSelectable={config.maxImages}
+        currentCount={images.length}
+      />
     </div>
   );
 }
