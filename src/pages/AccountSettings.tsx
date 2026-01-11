@@ -8,9 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export default function Settings() {
+export default function AccountSettings() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
@@ -27,6 +28,7 @@ export default function Settings() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Here you would save to profiles table
       toast.success("Değişiklikler kaydedildi");
     } catch (error) {
       toast.error("Bir hata oluştu");
