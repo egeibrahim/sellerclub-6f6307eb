@@ -374,16 +374,16 @@ serve(async (req) => {
     
     if (tokenError || !accessToken) {
       const missingStoreName = !storeName;
+      console.error('[ikas] OAuth error:', { tokenError, tokenDetails, storeName: storeName || 'missing' });
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: tokenError || 'OAuth2 token alınamadı',
+          error: 'OAuth2 kimlik doğrulama başarısız',
           errorType: 'OAUTH_ERROR',
           statusCode: 401,
-          details: tokenDetails || 'Unknown OAuth error',
           message: missingStoreName 
             ? 'Store Name (Mağaza Adı) girilmedi. Lütfen mağaza adınızı girin (örn: dev-listele)'
-            : 'Client ID veya Client Secret hatalı olabilir. Lütfen ikas panelden "Uygulama" tipindeki doğru bilgileri aldığınızdan emin olun.'
+            : 'Client ID veya Client Secret hatalı olabilir. Lütfen ikas panelden doğru bilgileri aldığınızdan emin olun.'
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
