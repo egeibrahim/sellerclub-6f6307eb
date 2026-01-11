@@ -10,7 +10,7 @@ export default function Settings() {
   const { user } = useAuth();
 
   return (
-    <Layout>
+    <Layout showHeader={false}>
       <Header title="Settings" />
 
       <div className="p-6">

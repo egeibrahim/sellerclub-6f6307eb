@@ -126,7 +126,7 @@ export default function MasterListings() {
   const selectedListings = masterListings.filter(l => selectedIds.has(l.id));
 
   return (
-    <Layout>
+    <Layout showHeader={true}>
       <div className="p-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">

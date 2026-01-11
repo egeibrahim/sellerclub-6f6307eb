@@ -35,7 +35,7 @@ export default function Categories() {
   };
 
   return (
-    <Layout>
+    <Layout showHeader={false}>
       <Header title="Category Mapping">
         <Button
           onClick={syncCategories}

@@ -4,7 +4,7 @@ import { AnalyticsDashboard } from "@/components/analytics/AnalyticsDashboard";
 
 export default function Analytics() {
   return (
-    <Layout>
+    <Layout showHeader={false}>
       <Header title="Raporlar" />
       <div className="p-6">
         <AnalyticsDashboard />
