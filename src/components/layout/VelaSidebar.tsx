@@ -48,7 +48,6 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
   const location = useLocation();
   const { shops, selectedShop, setSelectedShop, isMasterView } = useShop();
   
-  const [inactiveShopsOpen, setInactiveShopsOpen] = useState(true);
   const [statusOpen, setStatusOpen] = useState(true);
   const [categoryOpen, setCategoryOpen] = useState(true);
   const [showConnectDialog, setShowConnectDialog] = useState(false);
@@ -149,13 +148,13 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
 
           <DropdownMenuContent 
             align="start" 
-            className="w-56 bg-popover border border-border shadow-lg z-50"
+            className="w-56 bg-white border border-gray-200 shadow-lg z-50 max-h-[70vh] overflow-y-auto"
             sideOffset={4}
           >
             {/* Master Listings */}
             <DropdownMenuItem 
               onClick={handleSelectMaster}
-              className="flex items-center gap-3 p-2 cursor-pointer"
+              className="flex items-center gap-3 p-2 cursor-pointer hover:bg-gray-50"
             >
               <div 
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
@@ -164,19 +163,23 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                 M
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium">Master Listings</p>
+                <p className="text-sm font-medium text-gray-900">Master Listings</p>
               </div>
-              <span className="text-xs text-muted-foreground">{masterCounts.all}</span>
+              <span className="text-xs text-gray-500">{masterCounts.all}</span>
             </DropdownMenuItem>
 
+            {/* Connected Shops */}
             {connectedShops.length > 0 && (
               <>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="bg-gray-200" />
+                <DropdownMenuLabel className="text-xs font-normal text-gray-500 px-2 py-1.5">
+                  Connected shops
+                </DropdownMenuLabel>
                 {connectedShops.map((shop) => (
                   <DropdownMenuItem
                     key={shop.id}
                     onClick={() => handleSelectShop(shop)}
-                    className="flex items-center gap-3 p-2 cursor-pointer"
+                    className="flex items-center gap-3 p-2 cursor-pointer hover:bg-gray-50"
                   >
                     <div 
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
@@ -184,9 +187,9 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                     >
                       {shop.icon}
                     </div>
-                    <div className="flex-1">
-                      <span className="text-xs text-muted-foreground">{shop.platform}</span>
-                      <p className="text-sm font-medium">{shop.name}</p>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs text-gray-500">{shop.platform}</span>
+                      <p className="text-sm font-medium text-gray-900 truncate">{shop.name}</p>
                     </div>
                     <div className="w-2 h-2 rounded-full bg-green-500" />
                   </DropdownMenuItem>
@@ -197,18 +200,15 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
             {/* Inactive Shops */}
             {inactivePlatforms.length > 0 && (
               <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground px-2">
+                <DropdownMenuSeparator className="bg-gray-200" />
+                <DropdownMenuLabel className="text-xs font-normal text-gray-500 px-2 py-1.5">
                   Inactive shops
                 </DropdownMenuLabel>
-                {inactivePlatforms.slice(0, 3).map((platform) => (
+                {inactivePlatforms.map((platform) => (
                   <DropdownMenuItem
                     key={platform.id}
-                    className="flex items-center gap-3 p-2 cursor-pointer"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleConnectClick(platform.id);
-                    }}
+                    className="flex items-center gap-3 p-2 cursor-pointer hover:bg-gray-50"
+                    onSelect={(e) => e.preventDefault()}
                   >
                     <div 
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs opacity-60"
@@ -216,79 +216,45 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                     >
                       {platform.icon}
                     </div>
-                    <span className="text-sm text-muted-foreground flex-1">{platform.name}</span>
-                    <Plus className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-gray-500 flex-1">{platform.name}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        className="w-6 h-6 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleConnectClick(platform.id);
+                        }}
+                        title="Connect"
+                      >
+                        <Plus className="h-3 w-3 text-gray-600" />
+                      </button>
+                      <button
+                        className="w-6 h-6 rounded flex items-center justify-center bg-green-100 hover:bg-green-200 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyClick(platform);
+                        }}
+                        title="Copy listings"
+                      >
+                        <ChevronRight className="h-3 w-3 text-green-600" />
+                      </button>
+                    </div>
                   </DropdownMenuItem>
                 ))}
               </>
             )}
+
+            {/* Waitlist */}
+            <DropdownMenuSeparator className="bg-gray-200" />
+            <DropdownMenuItem className="flex items-center justify-center gap-2 p-2 cursor-pointer hover:bg-gray-50">
+              <Clock className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-gray-500">Waitlist</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto">
-          {/* Inactive Shops Section */}
-          <Collapsible open={inactiveShopsOpen} onOpenChange={setInactiveShopsOpen}>
-            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors">
-              <span className="text-xs font-medium text-gray-500">Inactive shops</span>
-              <ChevronDown className={cn(
-                "h-3.5 w-3.5 text-gray-400 transition-transform",
-                inactiveShopsOpen && "rotate-180"
-              )} />
-            </CollapsibleTrigger>
-
-            <CollapsibleContent>
-              {inactivePlatforms.map((platform) => (
-                <div
-                  key={platform.id}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 transition-colors group"
-                >
-                  <div 
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs opacity-50"
-                    style={{ backgroundColor: platform.color }}
-                  >
-                    {platform.icon}
-                  </div>
-                  <span className="text-sm text-gray-500 flex-1">{platform.name}</span>
-                  
-                  {/* Action buttons */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      className="w-7 h-7 rounded-md flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleConnectClick(platform.id);
-                      }}
-                      title="Connect"
-                    >
-                      <Plus className="h-3.5 w-3.5 text-gray-600" />
-                    </button>
-                    <button
-                      className="w-7 h-7 rounded-md flex items-center justify-center bg-green-100 hover:bg-green-200 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCopyClick(platform);
-                      }}
-                      title="Copy listings"
-                    >
-                      <ChevronRight className="h-3.5 w-3.5 text-green-600" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
-
-          {/* Waitlist Button */}
-          <div className="px-4 py-2">
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
-              <Clock className="h-4 w-4 text-gray-500" />
-              <span className="text-sm text-gray-500">Waitlist</span>
-            </button>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t border-gray-200 my-2" />
 
           {/* Status Filters */}
           <Collapsible open={statusOpen} onOpenChange={setStatusOpen}>
