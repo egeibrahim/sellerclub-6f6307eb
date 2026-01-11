@@ -85,6 +85,22 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
     }
   };
 
+  const handleSelectInactiveShop = (platform: typeof allPlatforms[0]) => {
+    // Create a temporary shop object for the inactive platform
+    const inactiveShop: Shop = {
+      id: `inactive-${platform.id}`,
+      name: platform.name,
+      platform: platform.name,
+      icon: platform.icon,
+      color: platform.color,
+      listingRoute: `/inventory/new/${platform.id}`,
+      isConnected: false,
+      lastSyncAt: null,
+    };
+    setSelectedShop(inactiveShop);
+    navigate('/inventory');
+  };
+
   const handleConnectClick = (platformId: string) => {
     setConnectPlatform(platformId);
     setShowConnectDialog(true);
@@ -208,7 +224,7 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                   <DropdownMenuItem
                     key={platform.id}
                     className="flex items-center gap-3 p-2 cursor-pointer hover:bg-gray-50"
-                    onSelect={(e) => e.preventDefault()}
+                    onSelect={() => handleSelectInactiveShop(platform)}
                   >
                     <div 
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs opacity-60"
@@ -216,12 +232,18 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                     >
                       {platform.icon}
                     </div>
-                    <span className="text-sm text-gray-500 flex-1">{platform.name}</span>
+                    <span 
+                      className="text-sm text-gray-500 flex-1"
+                      onClick={() => handleSelectInactiveShop(platform)}
+                    >
+                      {platform.name}
+                    </span>
                     <div className="flex items-center gap-1">
                       <button
                         className="w-6 h-6 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
+                          e.preventDefault();
                           handleConnectClick(platform.id);
                         }}
                         title="Connect"
@@ -232,6 +254,7 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                         className="w-6 h-6 rounded flex items-center justify-center bg-green-100 hover:bg-green-200 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
+                          e.preventDefault();
                           handleCopyClick(platform);
                         }}
                         title="Copy listings"
