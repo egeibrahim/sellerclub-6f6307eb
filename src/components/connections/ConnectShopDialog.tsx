@@ -20,38 +20,68 @@ interface ConnectShopDialogProps {
 type Step = 'select-platform' | 'credentials' | 'success';
 
 const platforms = [
-  { id: 'etsy', name: 'Etsy', icon: 'E', color: '#F56400', authType: 'oauth' },
+  { id: 'etsy', name: 'Etsy', icon: 'E', color: '#F56400', authType: 'api_key' },
   { id: 'trendyol', name: 'Trendyol', icon: 'T', color: '#FF6000', authType: 'api_key' },
   { id: 'hepsiburada', name: 'Hepsiburada', icon: 'H', color: '#FF6600', authType: 'api_key' },
-  { id: 'amazon', name: 'Amazon', icon: 'A', color: '#FF9900', authType: 'oauth' },
-  { id: 'shopify', name: 'Shopify', icon: 'S', color: '#95BF47', authType: 'oauth' },
+  { id: 'amazon', name: 'Amazon', icon: 'A', color: '#FF9900', authType: 'api_key' },
+  { id: 'shopify', name: 'Shopify', icon: 'S', color: '#95BF47', authType: 'api_key' },
   { id: 'ikas', name: 'ikas', icon: 'i', color: '#6366F1', authType: 'api_key' },
   { id: 'n11', name: 'N11', icon: 'N', color: '#7B68EE', authType: 'api_key' },
   { id: 'ciceksepeti', name: 'Çiçeksepeti', icon: 'Ç', color: '#E91E63', authType: 'api_key' },
+  { id: 'ticimax', name: 'Ticimax', icon: 'Ti', color: '#00A9E0', authType: 'api_key' },
+  { id: 'tsoft', name: 'T-Soft', icon: 'TS', color: '#1E3A5F', authType: 'api_key' },
+  { id: 'ideasoft', name: 'IdeaSoft', icon: 'IS', color: '#FF4E00', authType: 'api_key' },
 ];
 
 const credentialFields: Record<string, { key: string; label: string; placeholder: string; type?: string }[]> = {
-  trendyol: [
-    { key: 'sellerId', label: 'Satıcı ID', placeholder: 'Satıcı ID\nizi girin' },
+  etsy: [
     { key: 'apiKey', label: 'API Key', placeholder: 'API anahtarınızı girin' },
-    { key: 'apiSecret', label: 'API Secret', placeholder: 'API secret\ınızı girin', type: 'password' },
+    { key: 'apiSecret', label: 'API Secret', placeholder: 'API secret\'ınızı girin', type: 'password' },
+  ],
+  trendyol: [
+    { key: 'sellerId', label: 'Satıcı ID', placeholder: 'Satıcı ID\'nizi girin' },
+    { key: 'apiKey', label: 'API Key', placeholder: 'API anahtarınızı girin' },
+    { key: 'apiSecret', label: 'API Secret', placeholder: 'API secret\'ınızı girin', type: 'password' },
   ],
   hepsiburada: [
-    { key: 'merchantId', label: 'Merchant ID', placeholder: 'Merchant ID\nizi girin' },
+    { key: 'merchantId', label: 'Merchant ID', placeholder: 'Merchant ID\'nizi girin' },
     { key: 'username', label: 'Username', placeholder: 'Kullanıcı adınızı girin' },
     { key: 'password', label: 'Password', placeholder: 'Şifrenizi girin', type: 'password' },
   ],
+  amazon: [
+    { key: 'sellerId', label: 'Seller ID', placeholder: 'Seller ID\'nizi girin' },
+    { key: 'mwsAuthToken', label: 'MWS Auth Token', placeholder: 'MWS Auth Token\'ınızı girin', type: 'password' },
+  ],
+  shopify: [
+    { key: 'storeName', label: 'Store Name', placeholder: 'Mağaza adınızı girin (örn: mystore)' },
+    { key: 'accessToken', label: 'Access Token', placeholder: 'Access Token\'ınızı girin', type: 'password' },
+  ],
   ikas: [
-    { key: 'storeId', label: 'Store ID', placeholder: 'Store ID\nizi girin' },
+    { key: 'storeId', label: 'Store ID', placeholder: 'Store ID\'nizi girin' },
     { key: 'apiKey', label: 'API Key', placeholder: 'API anahtarınızı girin' },
   ],
   n11: [
     { key: 'apiKey', label: 'API Key', placeholder: 'API anahtarınızı girin' },
-    { key: 'apiSecret', label: 'API Secret', placeholder: 'API secret\ınızı girin', type: 'password' },
+    { key: 'apiSecret', label: 'API Secret', placeholder: 'API secret\'ınızı girin', type: 'password' },
   ],
   ciceksepeti: [
     { key: 'apiKey', label: 'API Key', placeholder: 'API anahtarınızı girin' },
-    { key: 'apiSecret', label: 'API Secret', placeholder: 'API secret\ınızı girin', type: 'password' },
+    { key: 'apiSecret', label: 'API Secret', placeholder: 'API secret\'ınızı girin', type: 'password' },
+  ],
+  ticimax: [
+    { key: 'storeUrl', label: 'Mağaza URL', placeholder: 'Mağaza URL\'nizi girin' },
+    { key: 'apiKey', label: 'API Key', placeholder: 'API anahtarınızı girin' },
+    { key: 'apiSecret', label: 'API Secret', placeholder: 'API secret\'ınızı girin', type: 'password' },
+  ],
+  tsoft: [
+    { key: 'storeUrl', label: 'Mağaza URL', placeholder: 'Mağaza URL\'nizi girin' },
+    { key: 'apiKey', label: 'API Key', placeholder: 'API anahtarınızı girin' },
+    { key: 'apiSecret', label: 'API Secret', placeholder: 'API secret\'ınızı girin', type: 'password' },
+  ],
+  ideasoft: [
+    { key: 'storeUrl', label: 'Mağaza URL', placeholder: 'Mağaza URL\'nizi girin' },
+    { key: 'apiKey', label: 'API Key', placeholder: 'API anahtarınızı girin' },
+    { key: 'apiSecret', label: 'API Secret', placeholder: 'API secret\'ınızı girin', type: 'password' },
   ],
 };
 
@@ -66,18 +96,8 @@ export const ConnectShopDialog = ({ open, onOpenChange, initialPlatform }: Conne
       const platform = platforms.find(p => p.id === initialPlatform);
       if (platform) {
         setSelectedPlatform(platform);
-        if (platform.authType === 'oauth') {
-          // OAuth platforms show "Coming Soon" toast but stay open
-          toast({
-            title: "Çok Yakında",
-            description: `${platform.name} entegrasyonu çok yakında kullanılabilir olacak.`,
-          });
-          // Close dialog for OAuth platforms since they can't proceed
-          onOpenChange(false);
-        } else {
-          // API Key platforms go directly to credentials step
-          setStep('credentials');
-        }
+        // Go directly to credentials step
+        setStep('credentials');
       }
     }
     if (!open) {
@@ -107,17 +127,7 @@ export const ConnectShopDialog = ({ open, onOpenChange, initialPlatform }: Conne
 
   const handlePlatformSelect = (platform: typeof platforms[0]) => {
     setSelectedPlatform(platform);
-    
-    if (platform.authType === 'oauth') {
-      // OAuth platforms are not yet implemented
-      toast({
-        title: "Çok Yakında",
-        description: `${platform.name} entegrasyonu çok yakında kullanılabilir olacak.`,
-      });
-      return;
-    } else {
-      setStep('credentials');
-    }
+    setStep('credentials');
   };
 
   // OAuth function removed - platforms marked as "Coming Soon" until oauth-init is implemented
@@ -207,7 +217,7 @@ export const ConnectShopDialog = ({ open, onOpenChange, initialPlatform }: Conne
 
         {/* Step 1: Platform Selection */}
         {step === 'select-platform' && (
-          <div className="grid grid-cols-2 gap-3 py-4">
+          <div className="grid grid-cols-2 gap-3 py-4 max-h-[60vh] overflow-y-auto">
             {platforms.map((platform) => (
               <button
                 key={platform.id}
@@ -216,26 +226,18 @@ export const ConnectShopDialog = ({ open, onOpenChange, initialPlatform }: Conne
                 className={cn(
                   "flex items-center gap-3 p-4 rounded-lg border-2 border-border relative",
                   "hover:border-primary/50 hover:bg-accent transition-all",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
-                  platform.authType === 'oauth' && "opacity-60"
+                  "disabled:opacity-50 disabled:cursor-not-allowed"
                 )}
               >
-                {platform.authType === 'oauth' && (
-                  <span className="absolute top-1 right-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
-                    Çok Yakında
-                  </span>
-                )}
                 <div 
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
                   style={{ backgroundColor: platform.color }}
                 >
                   {platform.icon}
                 </div>
                 <div className="text-left">
                   <p className="font-medium">{platform.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {platform.authType === 'oauth' ? 'OAuth' : 'API Key'}
-                  </p>
+                  <p className="text-xs text-muted-foreground">API Key</p>
                 </div>
               </button>
             ))}

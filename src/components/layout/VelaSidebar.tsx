@@ -30,6 +30,9 @@ const allPlatforms = [
   { id: 'ikas', name: 'ikas', icon: 'i', color: '#6366F1' },
   { id: 'n11', name: 'N11', icon: 'N', color: '#7B68EE' },
   { id: 'ciceksepeti', name: 'Çiçeksepeti', icon: 'Ç', color: '#E91E63' },
+  { id: 'ticimax', name: 'Ticimax', icon: 'Ti', color: '#00A9E0' },
+  { id: 'tsoft', name: 'T-Soft', icon: 'TS', color: '#1E3A5F' },
+  { id: 'ideasoft', name: 'IdeaSoft', icon: 'IS', color: '#FF4E00' },
 ];
 
 // Status filter items
