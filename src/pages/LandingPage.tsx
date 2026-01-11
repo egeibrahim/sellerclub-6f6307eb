@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LandingNavbar } from "@/components/landing/LandingNavbar";
 import { HeroSection } from "@/components/landing/HeroSection";
+import { DemoVideoSection } from "@/components/landing/DemoVideoSection";
 import { StatsSection } from "@/components/landing/StatsSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { ToolsMarquee } from "@/components/landing/ToolsMarquee";
@@ -37,7 +38,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white">
       <LandingNavbar />
       <HeroSection />
-      <StatsSection />
+      <DemoVideoSection />
       <FeaturesSection />
       <ToolsMarquee />
       <PlatformsSection />
