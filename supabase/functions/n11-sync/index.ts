@@ -483,16 +483,18 @@ serve(async (req) => {
         result = await testConnection(credentials);
         break;
 
+      case 'fetch_categories':
       case 'fetchCategories':
-        result = { categories: await fetchCategories(credentials) };
+        result = { success: true, categories: await fetchCategories(credentials) };
         break;
 
       case 'fetchSubCategories':
         result = { categories: await fetchSubCategories(credentials, params.categoryId) };
         break;
 
+      case 'fetch_category_attributes':
       case 'fetchCategoryAttributes':
-        result = { attributes: await fetchCategoryAttributes(credentials, params.categoryId) };
+        result = { success: true, attributes: await fetchCategoryAttributes(credentials, params.categoryId) };
         break;
 
       case 'fetchProducts':

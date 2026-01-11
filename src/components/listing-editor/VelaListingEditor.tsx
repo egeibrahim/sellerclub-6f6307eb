@@ -397,6 +397,7 @@ export function VelaListingEditor({
                 categoryPath={formData.categoryPath}
                 onCategoryChange={(category, categoryPath) => updateFormData({ category, categoryPath })}
                 error={validationErrors.category}
+                connectionId={shopId}
               />
             </div>
           )}
