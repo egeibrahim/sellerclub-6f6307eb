@@ -1,0 +1,37 @@
+project_id = "mbsepezquuzjubkhhgzl"
+
+[functions.ai-mapping]
+verify_jwt = false
+
+[functions.ai-category-mapping]
+verify_jwt = false
+
+[functions.hepsiburada-sync]
+verify_jwt = false
+
+[functions.ikas-sync]
+verify_jwt = false
+
+[functions.trendyol-sync]
+verify_jwt = false
+
+[functions.ciceksepeti-sync]
+verify_jwt = false
+
+[functions.n11-sync]
+verify_jwt = false
+
+[functions.amazon-sync]
+verify_jwt = false
+
+[functions.stock-sync]
+verify_jwt = false
+
+[functions.fetch-all-orders]
+verify_jwt = false
+
+[functions.order-status-sync]
+verify_jwt = false
+
+[functions.low-stock-check]
+verify_jwt = false
