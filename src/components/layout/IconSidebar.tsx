@@ -19,12 +19,12 @@ export const IconSidebar = ({ className }: IconSidebarProps) => {
   return (
     <TooltipProvider delayDuration={100}>
       <div className={cn(
-        "w-14 bg-sidebar border-r border-sidebar-border flex flex-col items-center py-4 gap-2",
+        "w-14 bg-white border-r border-gray-200 flex flex-col items-center py-4 gap-2",
         className
       )}>
         {/* Logo */}
-        <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center mb-4">
-          <span className="text-sidebar-primary-foreground font-bold text-sm">SC</span>
+        <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center mb-4">
+          <span className="text-white font-bold text-sm">SC</span>
         </div>
 
         {/* Navigation Icons */}
@@ -35,15 +35,15 @@ export const IconSidebar = ({ className }: IconSidebarProps) => {
                 to={item.path}
                 className={cn(
                   "w-10 h-10 rounded-lg flex items-center justify-center",
-                  "text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  "text-gray-500 hover:bg-gray-100 hover:text-gray-700",
                   "transition-colors"
                 )}
-                activeClassName="bg-sidebar-primary/20 text-sidebar-primary"
+                activeClassName="bg-emerald-50 text-emerald-600"
               >
                 <item.icon className="h-5 w-5" />
               </NavLink>
             </TooltipTrigger>
-            <TooltipContent side="right" className="bg-popover text-popover-foreground">
+            <TooltipContent side="right" className="bg-white text-gray-900 border border-gray-200">
               {item.label}
             </TooltipContent>
           </Tooltip>

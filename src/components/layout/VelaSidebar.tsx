@@ -49,7 +49,6 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
   const { shops, selectedShop, setSelectedShop, isMasterView } = useShop();
   
   const [inactiveShopsOpen, setInactiveShopsOpen] = useState(true);
-  const [newShopsOpen, setNewShopsOpen] = useState(true);
   const [statusOpen, setStatusOpen] = useState(true);
   const [categoryOpen, setCategoryOpen] = useState(true);
   const [showConnectDialog, setShowConnectDialog] = useState(false);
@@ -110,13 +109,13 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
   return (
     <>
       <div className={cn(
-        "w-56 bg-sidebar border-r border-sidebar-border flex flex-col h-full",
+        "w-56 bg-white border-r border-gray-200 flex flex-col h-full",
         className
       )}>
         {/* Shop Dropdown Selector */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-full flex items-center gap-3 p-3 hover:bg-sidebar-accent transition-colors text-left border-b border-sidebar-border">
+            <button className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-200">
               {!isMasterView && selectedShop.id !== 'master' ? (
                 <>
                   <div 
@@ -126,8 +125,8 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                     {selectedShop.icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs text-sidebar-muted">{selectedShop.platform}</span>
-                    <p className="text-sm font-medium text-sidebar-foreground truncate">{selectedShop.name}</p>
+                    <span className="text-xs text-gray-500">{selectedShop.platform}</span>
+                    <p className="text-sm font-medium text-gray-900 truncate">{selectedShop.name}</p>
                   </div>
                 </>
               ) : (
@@ -139,12 +138,12 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                     M
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs text-sidebar-muted">Hub</span>
-                    <p className="text-sm font-medium text-sidebar-foreground">Master Listings</p>
+                    <span className="text-xs text-gray-500">Hub</span>
+                    <p className="text-sm font-medium text-gray-900">Master Listings</p>
                   </div>
                 </>
               )}
-              <ChevronDown className="h-4 w-4 text-sidebar-muted shrink-0" />
+              <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
             </button>
           </DropdownMenuTrigger>
 
@@ -230,10 +229,10 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
         <div className="flex-1 overflow-y-auto">
           {/* Inactive Shops Section */}
           <Collapsible open={inactiveShopsOpen} onOpenChange={setInactiveShopsOpen}>
-            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-sidebar-accent transition-colors">
-              <span className="text-xs font-medium text-sidebar-muted">Inactive shops</span>
+            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors">
+              <span className="text-xs font-medium text-gray-500">Inactive shops</span>
               <ChevronDown className={cn(
-                "h-3.5 w-3.5 text-sidebar-muted transition-transform",
+                "h-3.5 w-3.5 text-gray-400 transition-transform",
                 inactiveShopsOpen && "rotate-180"
               )} />
             </CollapsibleTrigger>
@@ -242,7 +241,7 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
               {inactivePlatforms.map((platform) => (
                 <div
                   key={platform.id}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-sidebar-accent transition-colors group"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 transition-colors group"
                 >
                   <div 
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs opacity-50"
@@ -250,19 +249,19 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                   >
                     {platform.icon}
                   </div>
-                  <span className="text-sm text-sidebar-muted flex-1">{platform.name}</span>
+                  <span className="text-sm text-gray-500 flex-1">{platform.name}</span>
                   
                   {/* Action buttons */}
                   <div className="flex items-center gap-1">
                     <button
-                      className="w-7 h-7 rounded-md flex items-center justify-center bg-sidebar-accent hover:bg-border transition-colors"
+                      className="w-7 h-7 rounded-md flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleConnectClick(platform.id);
                       }}
                       title="Connect"
                     >
-                      <Plus className="h-3.5 w-3.5 text-sidebar-foreground" />
+                      <Plus className="h-3.5 w-3.5 text-gray-600" />
                     </button>
                     <button
                       className="w-7 h-7 rounded-md flex items-center justify-center bg-green-100 hover:bg-green-200 transition-colors"
@@ -280,61 +279,23 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
             </CollapsibleContent>
           </Collapsible>
 
-          {/* New Shops Section */}
-          <Collapsible open={newShopsOpen} onOpenChange={setNewShopsOpen}>
-            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-sidebar-accent transition-colors">
-              <span className="text-xs font-medium text-sidebar-muted">New shops</span>
-              <ChevronDown className={cn(
-                "h-3.5 w-3.5 text-sidebar-muted transition-transform",
-                newShopsOpen && "rotate-180"
-              )} />
-            </CollapsibleTrigger>
-
-            <CollapsibleContent>
-              {allPlatforms.slice(0, 4).map((platform) => (
-                <div
-                  key={`new-${platform.id}`}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-sidebar-accent transition-colors group"
-                >
-                  <div 
-                    className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden"
-                    style={{ backgroundColor: platform.color }}
-                  >
-                    <span className="text-white font-bold text-xs">{platform.icon}</span>
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-xs text-sidebar-muted">{platform.name}</span>
-                    <p className="text-sm text-sidebar-foreground">New shop</p>
-                  </div>
-                  
-                  <button
-                    className="w-7 h-7 rounded-md flex items-center justify-center bg-sidebar-accent hover:bg-border transition-colors"
-                    onClick={() => handleConnectClick(platform.id)}
-                  >
-                    <Plus className="h-3.5 w-3.5 text-sidebar-foreground" />
-                  </button>
-                </div>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
-
           {/* Waitlist Button */}
           <div className="px-4 py-2">
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-sidebar-accent hover:bg-border transition-colors">
-              <Clock className="h-4 w-4 text-sidebar-muted" />
-              <span className="text-sm text-sidebar-muted">Waitlist</span>
+            <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+              <Clock className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-gray-500">Waitlist</span>
             </button>
           </div>
 
           {/* Divider */}
-          <div className="border-t border-sidebar-border my-2" />
+          <div className="border-t border-gray-200 my-2" />
 
           {/* Status Filters */}
           <Collapsible open={statusOpen} onOpenChange={setStatusOpen}>
-            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-sidebar-accent transition-colors">
-              <span className="text-xs font-medium text-sidebar-muted uppercase tracking-wider">Listing Status</span>
+            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Listing Status</span>
               <ChevronDown className={cn(
-                "h-3.5 w-3.5 text-sidebar-muted transition-transform",
+                "h-3.5 w-3.5 text-gray-400 transition-transform",
                 statusOpen && "rotate-180"
               )} />
             </CollapsibleTrigger>
@@ -346,16 +307,16 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                   className={cn(
                     "flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors",
                     currentStatus === item.key
-                      ? "bg-sidebar-accent"
-                      : "hover:bg-sidebar-accent/50"
+                      ? "bg-gray-100"
+                      : "hover:bg-gray-50"
                   )}
                   onClick={() => handleStatusChange(item.key)}
                 >
                   {item.color && (
                     <div className={cn("w-2 h-2 rounded-full", item.color)} />
                   )}
-                  <span className="text-sm text-sidebar-foreground flex-1">{item.label}</span>
-                  <span className="text-xs text-sidebar-muted">
+                  <span className="text-sm text-gray-700 flex-1">{item.label}</span>
+                  <span className="text-xs text-gray-500">
                     {item.key === 'all' ? currentCounts?.all || 0 :
                      item.key === 'active' ? currentCounts?.active || 0 :
                      item.key === 'draft' ? currentCounts?.draft || 0 :
@@ -371,10 +332,10 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
 
           {/* Category Filters */}
           <Collapsible open={categoryOpen} onOpenChange={setCategoryOpen}>
-            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-sidebar-accent transition-colors">
-              <span className="text-xs font-medium text-sidebar-muted uppercase tracking-wider">Category</span>
+            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Category</span>
               <ChevronDown className={cn(
-                "h-3.5 w-3.5 text-sidebar-muted transition-transform",
+                "h-3.5 w-3.5 text-gray-400 transition-transform",
                 categoryOpen && "rotate-180"
               )} />
             </CollapsibleTrigger>
@@ -384,15 +345,15 @@ export function VelaSidebar({ className }: VelaSidebarProps) {
                 categoryCounts.map((cat) => (
                   <div
                     key={cat.category}
-                    className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-sidebar-accent/50 transition-colors"
+                    className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-gray-50 transition-colors"
                   >
-                    <div className="w-4 h-4 rounded border border-sidebar-border" />
-                    <span className="text-sm text-sidebar-foreground flex-1 truncate">{cat.category}</span>
-                    <span className="text-xs text-sidebar-muted">{cat.count}</span>
+                    <div className="w-4 h-4 rounded border border-gray-300" />
+                    <span className="text-sm text-gray-700 flex-1 truncate">{cat.category}</span>
+                    <span className="text-xs text-gray-500">{cat.count}</span>
                   </div>
                 ))
               ) : (
-                <div className="px-4 py-2 text-xs text-sidebar-muted">
+                <div className="px-4 py-2 text-xs text-gray-500">
                   Henüz kategori yok
                 </div>
               )}
