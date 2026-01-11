@@ -11,22 +11,17 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductImageUpload } from "@/components/product/ProductImageUpload";
+import { Json } from "@/integrations/supabase/types";
 
-interface ProductData {
-  id: string;
-  user_id: string;
-  title: string;
-  description: string | null;
-  sku: string | null;
-  price: number;
-  stock: number;
-  brand: string | null;
-  color: string | null;
-  size: string | null;
-  material: string | null;
-  status: string;
-  source: string;
-  images: string[] | null;
+interface MarketplaceData {
+  sku?: string;
+  brand?: string;
+  color?: string;
+  size?: string;
+  material?: string;
+  stock?: number;
+  images?: string[];
+  [key: string]: unknown;
 }
 
 export default function ProductEdit() {
@@ -35,7 +30,6 @@ export default function ProductEdit() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [product, setProduct] = useState<ProductData | null>(null);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -48,6 +42,8 @@ export default function ProductEdit() {
   const [size, setSize] = useState("");
   const [material, setMaterial] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [platform, setPlatform] = useState("");
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -55,7 +51,7 @@ export default function ProductEdit() {
 
       setIsLoading(true);
       const { data, error } = await supabase
-        .from("products")
+        .from("marketplace_listings")
         .select("*")
         .eq("id", id)
         .eq("user_id", user.id)
@@ -73,17 +69,21 @@ export default function ProductEdit() {
         return;
       }
 
-      setProduct(data as ProductData);
+      // Parse marketplace_data for additional fields
+      const marketplaceData = (data.marketplace_data as MarketplaceData) || {};
+      
       setTitle(data.title || "");
       setDescription(data.description || "");
-      setSku(data.sku || "");
+      setSku(marketplaceData.sku || "");
       setPrice(String(data.price || ""));
-      setStock(String(data.stock || ""));
-      setBrand(data.brand || "");
-      setColor(data.color || "");
-      setSize(data.size || "");
-      setMaterial(data.material || "");
-      setImages(data.images || []);
+      setStock(String(marketplaceData.stock || "0"));
+      setBrand(marketplaceData.brand || "");
+      setColor(marketplaceData.color || "");
+      setSize(marketplaceData.size || "");
+      setMaterial(marketplaceData.material || "");
+      setImages((marketplaceData.images as string[]) || []);
+      setPlatform(data.platform || "");
+      setStatus(data.status || "draft");
       setIsLoading(false);
     };
 
@@ -94,19 +94,24 @@ export default function ProductEdit() {
     if (!id || !user) return;
 
     setIsSaving(true);
+    
+    const updatedMarketplaceData: MarketplaceData = {
+      sku: sku || undefined,
+      brand: brand || undefined,
+      color: color || undefined,
+      size: size || undefined,
+      material: material || undefined,
+      stock: parseInt(stock) || 0,
+      images,
+    };
+
     const { error } = await supabase
-      .from("products")
+      .from("marketplace_listings")
       .update({
         title,
         description,
-        sku: sku || null,
         price: parseFloat(price) || 0,
-        stock: parseInt(stock) || 0,
-        brand: brand || null,
-        color: color || null,
-        size: size || null,
-        material: material || null,
-        images,
+        marketplace_data: updatedMarketplaceData as unknown as Json,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -128,7 +133,7 @@ export default function ProductEdit() {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     const { error } = await supabase
-      .from("products")
+      .from("marketplace_listings")
       .delete()
       .eq("id", id)
       .eq("user_id", user.id);
@@ -176,7 +181,7 @@ export default function ProductEdit() {
             <div>
               <h1 className="text-xl font-semibold text-foreground">Edit Product</h1>
               <p className="text-sm text-muted-foreground">
-                Source: {product?.source} • Status: {product?.status}
+                Platform: {platform} • Status: {status}
               </p>
             </div>
           </div>

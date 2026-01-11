@@ -217,7 +217,7 @@ export default function AmazonListingNew() {
         status: "draft",
         platform: "amazon",
         user_id: user.id,
-        marketplace_data: {
+        marketplace_data: JSON.parse(JSON.stringify({
           images,
           brand,
           sku,
@@ -230,7 +230,7 @@ export default function AmazonListingNew() {
           fulfillmentChannel,
           attributes,
           selectedCategory,
-        },
+        })),
       };
 
       if (productId) {
@@ -240,7 +240,7 @@ export default function AmazonListingNew() {
           .eq('id', productId)
           .eq('user_id', user.id);
       } else {
-        await supabase.from("marketplace_listings").insert(listingData);
+        await supabase.from("marketplace_listings").insert(listingData as any);
       }
 
       toast.success("Taslak kaydedildi");
@@ -563,10 +563,8 @@ export default function AmazonListingNew() {
                   </CardHeader>
                   <CardContent>
                     <AmazonCategoryTree
-                      categories={categories}
                       selectedCategory={selectedCategory}
-                      onSelect={setSelectedCategory}
-                      isLoading={categoriesLoading}
+                      onCategorySelect={setSelectedCategory}
                     />
                   </CardContent>
                 </Card>
@@ -589,7 +587,7 @@ export default function AmazonListingNew() {
                       <AmazonAttributePanel
                         category={selectedCategory}
                         attributes={attributes}
-                        onChange={setAttributes}
+                        onAttributeChange={(key, value) => setAttributes(prev => ({ ...prev, [key]: value }))}
                       />
                     ) : (
                       <p className="text-muted-foreground">
