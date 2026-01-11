@@ -60,12 +60,24 @@ export const ConnectShopDialog = ({ open, onOpenChange, initialPlatform }: Conne
   const [selectedPlatform, setSelectedPlatform] = useState<typeof platforms[0] | null>(null);
   const [shopName, setShopName] = useState('');
   
-  // Handle initial platform selection
+  // Handle initial platform selection - skip platform selection step
   React.useEffect(() => {
     if (open && initialPlatform) {
       const platform = platforms.find(p => p.id === initialPlatform);
       if (platform) {
-        handlePlatformSelect(platform);
+        setSelectedPlatform(platform);
+        if (platform.authType === 'oauth') {
+          // OAuth platforms show "Coming Soon" toast but stay open
+          toast({
+            title: "Çok Yakında",
+            description: `${platform.name} entegrasyonu çok yakında kullanılabilir olacak.`,
+          });
+          // Close dialog for OAuth platforms since they can't proceed
+          onOpenChange(false);
+        } else {
+          // API Key platforms go directly to credentials step
+          setStep('credentials');
+        }
       }
     }
     if (!open) {
