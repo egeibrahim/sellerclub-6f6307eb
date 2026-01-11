@@ -1,279 +1,115 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { PlatformLogo } from "@/components/common/PlatformLogos";
-import { useEffect, useState, useRef, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, Stars } from "@react-three/drei";
-import * as THREE from "three";
+import { useEffect, useState } from "react";
+import { Star } from "lucide-react";
 
 // All platforms for bidirectional flow
 const allPlatforms = [
-  { id: "trendyol", name: "Trendyol", angle: 0 },
-  { id: "hepsiburada", name: "Hepsiburada", angle: 36 },
-  { id: "amazon", name: "Amazon", angle: 72 },
-  { id: "n11", name: "N11", angle: 108 },
-  { id: "ciceksepeti", name: "Çiçeksepeti", angle: 144 },
-  { id: "etsy", name: "Etsy", angle: 180 },
-  { id: "shopify", name: "Shopify", angle: 216 },
-  { id: "ikas", name: "ikas", angle: 252 },
-  { id: "woocommerce", name: "WooCommerce", angle: 288 },
-  { id: "pazarama", name: "Pazarama", angle: 324 },
+  { id: "trendyol", name: "Trendyol" },
+  { id: "hepsiburada", name: "Hepsiburada" },
+  { id: "amazon", name: "Amazon" },
+  { id: "n11", name: "N11" },
+  { id: "ciceksepeti", name: "Çiçeksepeti" },
+  { id: "etsy", name: "Etsy" },
+  { id: "shopify", name: "Shopify" },
+  { id: "ikas", name: "ikas" },
+  { id: "woocommerce", name: "WooCommerce" },
+  { id: "pazarama", name: "Pazarama" },
 ];
 
-// 3D Star component
-function CentralStar() {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += 0.005;
-      meshRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
-    }
-    if (glowRef.current) {
-      glowRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 2) * 0.1);
-    }
-  });
-
-  // Create star shape
-  const starShape = useMemo(() => {
-    const shape = new THREE.Shape();
-    const outerRadius = 1;
-    const innerRadius = 0.4;
-    const points = 5;
-
-    for (let i = 0; i < points * 2; i++) {
-      const radius = i % 2 === 0 ? outerRadius : innerRadius;
-      const angle = (i * Math.PI) / points - Math.PI / 2;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
-      if (i === 0) {
-        shape.moveTo(x, y);
-      } else {
-        shape.lineTo(x, y);
-      }
-    }
-    shape.closePath();
-    return shape;
-  }, []);
-
-  const extrudeSettings = useMemo(() => ({
-    depth: 0.3,
-    bevelEnabled: true,
-    bevelThickness: 0.1,
-    bevelSize: 0.05,
-    bevelSegments: 3,
-  }), []);
-
-  return (
-    <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
-      <group>
-        {/* Glow effect */}
-        <mesh ref={glowRef}>
-          <sphereGeometry args={[1.8, 32, 32]} />
-          <meshBasicMaterial color="#8b5cf6" transparent opacity={0.15} />
-        </mesh>
-        
-        {/* Main star */}
-        <mesh ref={meshRef}>
-          <extrudeGeometry args={[starShape, extrudeSettings]} />
-          <meshStandardMaterial
-            color="#a855f7"
-            emissive="#7c3aed"
-            emissiveIntensity={0.5}
-            metalness={0.8}
-            roughness={0.2}
-          />
-        </mesh>
-      </group>
-    </Float>
-  );
-}
-
-// Flowing particles between platforms
-function FlowingParticles() {
-  const particlesRef = useRef<THREE.Points>(null);
-  const particleCount = 200;
-  
-  const { positions, velocities, targets, colors } = useMemo(() => {
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-    const velocities: THREE.Vector3[] = [];
-    const targets: { from: number; to: number; progress: number }[] = [];
-    
-    const radius = 4;
-    
-    for (let i = 0; i < particleCount; i++) {
-      const fromPlatform = Math.floor(Math.random() * allPlatforms.length);
-      let toPlatform = Math.floor(Math.random() * allPlatforms.length);
-      while (toPlatform === fromPlatform) {
-        toPlatform = Math.floor(Math.random() * allPlatforms.length);
-      }
-      
-      const fromAngle = (allPlatforms[fromPlatform].angle * Math.PI) / 180;
-      const progress = Math.random();
-      
-      positions[i * 3] = Math.cos(fromAngle) * radius * (1 - progress);
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 0.5;
-      positions[i * 3 + 2] = Math.sin(fromAngle) * radius * (1 - progress);
-      
-      velocities.push(new THREE.Vector3());
-      targets.push({ from: fromPlatform, to: toPlatform, progress });
-      
-      // Purple/violet colors
-      colors[i * 3] = 0.6 + Math.random() * 0.4;
-      colors[i * 3 + 1] = 0.2 + Math.random() * 0.3;
-      colors[i * 3 + 2] = 0.9 + Math.random() * 0.1;
-    }
-    
-    return { positions, velocities, targets, colors };
-  }, []);
-
-  useFrame(() => {
-    if (!particlesRef.current) return;
-    
-    const positionArray = particlesRef.current.geometry.attributes.position.array as Float32Array;
-    const radius = 4;
-    
-    for (let i = 0; i < particleCount; i++) {
-      const target = targets[i];
-      target.progress += 0.003 + Math.random() * 0.002;
-      
-      if (target.progress >= 1) {
-        // Reset particle - go to center first, then to new target
-        target.from = target.to;
-        target.to = Math.floor(Math.random() * allPlatforms.length);
-        while (target.to === target.from) {
-          target.to = Math.floor(Math.random() * allPlatforms.length);
-        }
-        target.progress = 0;
-      }
-      
-      const fromAngle = (allPlatforms[target.from].angle * Math.PI) / 180;
-      const toAngle = (allPlatforms[target.to].angle * Math.PI) / 180;
-      
-      // Bezier curve through center
-      const t = target.progress;
-      const t2 = t * t;
-      const t3 = t2 * t;
-      const mt = 1 - t;
-      const mt2 = mt * mt;
-      const mt3 = mt2 * mt;
-      
-      // Control points: start -> center -> end
-      const startX = Math.cos(fromAngle) * radius;
-      const startZ = Math.sin(fromAngle) * radius;
-      const endX = Math.cos(toAngle) * radius;
-      const endZ = Math.sin(toAngle) * radius;
-      
-      // Cubic bezier
-      positionArray[i * 3] = mt3 * startX + 3 * mt2 * t * 0 + 3 * mt * t2 * 0 + t3 * endX;
-      positionArray[i * 3 + 1] = Math.sin(t * Math.PI) * 0.5;
-      positionArray[i * 3 + 2] = mt3 * startZ + 3 * mt2 * t * 0 + 3 * mt * t2 * 0 + t3 * endZ;
-    }
-    
-    particlesRef.current.geometry.attributes.position.needsUpdate = true;
-  });
-
-  return (
-    <points ref={particlesRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={particleCount}
-          array={positions}
-          itemSize={3}
-        />
-        <bufferAttribute
-          attach="attributes-color"
-          count={particleCount}
-          array={colors}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.08}
-        vertexColors
-        transparent
-        opacity={0.8}
-        sizeAttenuation
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
-  );
-}
-
-// Connection rings
-function ConnectionRings() {
-  const ringRef = useRef<THREE.Mesh>(null);
-  const ring2Ref = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    if (ringRef.current) {
-      ringRef.current.rotation.z = state.clock.elapsedTime * 0.1;
-    }
-    if (ring2Ref.current) {
-      ring2Ref.current.rotation.z = -state.clock.elapsedTime * 0.15;
-    }
-  });
-
-  return (
-    <group rotation={[Math.PI / 2, 0, 0]}>
-      <mesh ref={ringRef}>
-        <torusGeometry args={[4, 0.02, 16, 100]} />
-        <meshBasicMaterial color="#a855f7" transparent opacity={0.3} />
-      </mesh>
-      <mesh ref={ring2Ref}>
-        <torusGeometry args={[3.5, 0.015, 16, 100]} />
-        <meshBasicMaterial color="#7c3aed" transparent opacity={0.2} />
-      </mesh>
-    </group>
-  );
-}
-
-// 3D Scene
-function Scene3D() {
-  return (
-    <>
-      <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} intensity={1} />
-      <pointLight position={[-10, -10, -10]} intensity={0.5} color="#a855f7" />
-      
-      <Stars radius={50} depth={50} count={1000} factor={4} saturation={0} fade speed={1} />
-      
-      <CentralStar />
-      <FlowingParticles />
-      <ConnectionRings />
-    </>
-  );
+interface FlowingParticle {
+  id: number;
+  fromIndex: number;
+  toIndex: number;
+  progress: number;
+  speed: number;
 }
 
 export function HeroSection() {
-  const [mounted, setMounted] = useState(false);
+  const [particles, setParticles] = useState<FlowingParticle[]>([]);
+  const [particleId, setParticleId] = useState(0);
 
+  // Create particles
   useEffect(() => {
-    setMounted(true);
+    const createParticle = () => {
+      const fromIndex = Math.floor(Math.random() * allPlatforms.length);
+      let toIndex = Math.floor(Math.random() * allPlatforms.length);
+      while (toIndex === fromIndex) {
+        toIndex = Math.floor(Math.random() * allPlatforms.length);
+      }
+
+      setParticleId(prev => {
+        const newId = prev + 1;
+        setParticles(p => [...p, {
+          id: newId,
+          fromIndex,
+          toIndex,
+          progress: 0,
+          speed: 0.008 + Math.random() * 0.006
+        }]);
+        return newId;
+      });
+    };
+
+    const interval = setInterval(createParticle, 200);
+    return () => clearInterval(interval);
   }, []);
 
-  const getPlatformPosition = (index: number, total: number, radius: number) => {
-    const angle = (index / total) * 2 * Math.PI - Math.PI / 2;
-    const x = Math.cos(angle) * radius;
-    const y = Math.sin(angle) * radius;
-    return { x, y, angle: (angle * 180) / Math.PI };
+  // Animate particles
+  useEffect(() => {
+    const animate = () => {
+      setParticles(prev => 
+        prev
+          .map(p => ({ ...p, progress: p.progress + p.speed }))
+          .filter(p => p.progress < 1)
+      );
+    };
+
+    const frame = setInterval(animate, 16);
+    return () => clearInterval(frame);
+  }, []);
+
+  const getPlatformPosition = (index: number) => {
+    const angle = (index / allPlatforms.length) * 2 * Math.PI - Math.PI / 2;
+    const radius = 200;
+    return {
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius,
+      angle
+    };
+  };
+
+  const getParticlePosition = (particle: FlowingParticle) => {
+    const from = getPlatformPosition(particle.fromIndex);
+    const to = getPlatformPosition(particle.toIndex);
+    const t = particle.progress;
+    
+    // Bezier curve through center (0,0)
+    const mt = 1 - t;
+    const x = mt * mt * from.x + 2 * mt * t * 0 + t * t * to.x;
+    const y = mt * mt * from.y + 2 * mt * t * 0 + t * t * to.y;
+    
+    return { x, y };
   };
 
   return (
-    <section id="home" className="relative pt-24 pb-8 bg-gradient-to-b from-slate-950 via-slate-900 to-background overflow-hidden min-h-screen">
-      {/* 3D Canvas Background */}
-      <div className="absolute inset-0 z-0">
-        {mounted && (
-          <Canvas
-            camera={{ position: [0, 5, 8], fov: 50 }}
-            style={{ background: 'transparent' }}
-          >
-            <Scene3D />
-          </Canvas>
-        )}
+    <section id="home" className="relative pt-24 pb-8 overflow-hidden min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800">
+      {/* Animated background stars */}
+      <div className="absolute inset-0 overflow-hidden">
+        {[...Array(50)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${2 + Math.random() * 2}s`,
+              opacity: 0.3 + Math.random() * 0.5
+            }}
+          />
+        ))}
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -312,37 +148,133 @@ export function HeroSection() {
           </p>
         </div>
 
-        {/* Platform Icons Circle */}
-        <div className="relative mx-auto w-full max-w-3xl h-[400px] sm:h-[500px] flex items-center justify-center">
-          {/* Platform icons in a circle */}
+        {/* 3D Orbit Container */}
+        <div 
+          className="relative mx-auto w-full max-w-2xl h-[450px] sm:h-[500px] flex items-center justify-center"
+          style={{ perspective: '1000px' }}
+        >
+          {/* Orbital rings with 3D effect */}
+          <div 
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{ transformStyle: 'preserve-3d' }}
+          >
+            <div 
+              className="absolute w-[420px] h-[420px] border border-purple-500/20 rounded-full"
+              style={{ transform: 'rotateX(70deg)' }}
+            />
+            <div 
+              className="absolute w-[380px] h-[380px] border border-violet-500/15 rounded-full animate-spin"
+              style={{ transform: 'rotateX(70deg)', animationDuration: '30s' }}
+            />
+            <div 
+              className="absolute w-[340px] h-[340px] border border-purple-400/10 rounded-full animate-spin"
+              style={{ transform: 'rotateX(70deg)', animationDuration: '25s', animationDirection: 'reverse' }}
+            />
+          </div>
+
+          {/* Connection lines SVG */}
+          <svg 
+            className="absolute inset-0 w-full h-full pointer-events-none" 
+            viewBox="-250 -250 500 500"
+            style={{ overflow: 'visible' }}
+          >
+            <defs>
+              <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#a855f7" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            
+            {/* Glow at center */}
+            <circle cx="0" cy="0" r="80" fill="url(#centerGlow)" />
+            
+            {/* Connection lines from each platform to center */}
+            {allPlatforms.map((_, index) => {
+              const pos = getPlatformPosition(index);
+              return (
+                <line
+                  key={`line-${index}`}
+                  x1={pos.x * 0.85}
+                  y1={pos.y * 0.85}
+                  x2="0"
+                  y2="0"
+                  stroke="url(#lineGrad)"
+                  strokeWidth="1"
+                  strokeDasharray="4 4"
+                  opacity="0.3"
+                />
+              );
+            })}
+            
+            <defs>
+              <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#a855f7" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.1" />
+              </linearGradient>
+            </defs>
+          </svg>
+
+          {/* Flowing particles */}
+          {particles.map(particle => {
+            const pos = getParticlePosition(particle);
+            const opacity = particle.progress < 0.5 
+              ? particle.progress * 2 
+              : 2 - particle.progress * 2;
+            
+            return (
+              <div
+                key={particle.id}
+                className="absolute w-2 h-2 rounded-full bg-purple-400 shadow-lg shadow-purple-500/50"
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px))`,
+                  opacity: Math.max(0.2, opacity),
+                }}
+              />
+            );
+          })}
+
+          {/* Platform icons */}
           {allPlatforms.map((platform, index) => {
-            const pos = getPlatformPosition(index, allPlatforms.length, 42);
+            const pos = getPlatformPosition(index);
             return (
               <div
                 key={platform.id}
-                className="absolute transition-all duration-300 hover:scale-125 hover:z-20"
+                className="absolute transition-all duration-300 hover:scale-125 hover:z-20 group"
                 style={{
-                  left: `calc(50% + ${pos.x}%)`,
-                  top: `calc(50% + ${pos.y}%)`,
-                  transform: 'translate(-50%, -50%)',
+                  left: '50%',
+                  top: '50%',
+                  transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px))`,
                 }}
               >
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-3 shadow-xl hover:bg-white/20 transition-all cursor-default group">
-                  <PlatformLogo platform={platform.id} size={40} />
-                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                    <span className="text-xs text-white bg-slate-800 px-2 py-1 rounded">
-                      {platform.name}
-                    </span>
-                  </div>
+                <div className="bg-slate-800/80 backdrop-blur-sm border border-slate-700 rounded-xl p-2.5 shadow-xl hover:bg-slate-700/80 hover:border-purple-500/50 transition-all cursor-default">
+                  <PlatformLogo platform={platform.id} size={36} />
+                </div>
+                <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-30">
+                  <span className="text-xs text-white bg-slate-900 px-2 py-1 rounded shadow-lg">
+                    {platform.name}
+                  </span>
                 </div>
               </div>
             );
           })}
 
-          {/* Center Star Label */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
-            <div className="text-center mt-32">
-              <span className="text-white/80 font-bold text-xl sm:text-2xl bg-slate-900/80 px-4 py-2 rounded-full backdrop-blur-sm border border-purple-500/30">
+          {/* Center Star Hub */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+            {/* Pulsing glow rings */}
+            <div className="absolute inset-0 -m-8 rounded-full bg-purple-500/20 animate-ping" style={{ animationDuration: '2s' }} />
+            <div className="absolute inset-0 -m-6 rounded-full bg-violet-500/30 animate-pulse" />
+            <div className="absolute inset-0 -m-4 rounded-full bg-purple-600/40 animate-pulse" style={{ animationDelay: '0.5s' }} />
+            
+            {/* Main star container */}
+            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-purple-500 via-violet-500 to-purple-600 flex items-center justify-center shadow-2xl shadow-purple-500/50 animate-spin" style={{ animationDuration: '20s' }}>
+              <Star className="w-10 h-10 sm:w-12 sm:h-12 text-white fill-white" />
+            </div>
+            
+            {/* Label */}
+            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 whitespace-nowrap">
+              <span className="text-white font-bold text-lg sm:text-xl bg-slate-900/90 px-4 py-2 rounded-full border border-purple-500/30 shadow-lg backdrop-blur-sm">
                 Seller Club
               </span>
             </div>
@@ -350,7 +282,7 @@ export function HeroSection() {
         </div>
 
         {/* Bottom Stats */}
-        <div className="mt-4 flex flex-wrap justify-center gap-8 sm:gap-16">
+        <div className="mt-8 flex flex-wrap justify-center gap-8 sm:gap-16">
           <div className="text-center">
             <div className="text-3xl sm:text-4xl font-bold text-white">10+</div>
             <div className="text-sm text-slate-400">Pazaryeri</div>
