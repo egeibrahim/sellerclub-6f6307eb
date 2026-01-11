@@ -45,16 +45,16 @@
 
     --radius: 0.75rem;
 
-    /* Dark sidebar for VELA style */
-    --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 0 0% 98%;
+    /* Light sidebar for VELA style */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 20%;
     --sidebar-primary: 161 93% 30%;
     --sidebar-primary-foreground: 151 80% 95%;
-    --sidebar-accent: 0 0% 18%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 0 0% 20%;
+    --sidebar-accent: 0 0% 94%;
+    --sidebar-accent-foreground: 0 0% 9%;
+    --sidebar-border: 0 0% 90%;
     --sidebar-ring: 161 93% 30%;
-    --sidebar-muted: 0 0% 60%;
+    --sidebar-muted: 0 0% 55%;
 
     /* Custom tokens */
     --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
