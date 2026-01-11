@@ -70,18 +70,17 @@ const variationSubTabs = [
   { id: "processing", label: "Processing" },
 ];
 
-interface MarketplaceConnection {
+interface ShopConnection {
   id: string;
-  marketplace: string;
-  store_name: string | null;
-  is_active: boolean;
+  platform: string;
+  shop_name: string;
+  is_connected: boolean;
 }
 
 interface ImportableProduct {
   id: string;
   title: string;
   price: number;
-  stock: number;
   images: string[];
   sku: string | null;
   brand: string | null;
@@ -130,9 +129,9 @@ export default function EtsyStyleMasterListing() {
   const [isSaving, setIsSaving] = useState(false);
   const [showAllVariations, setShowAllVariations] = useState(true);
   
-  // Marketplace connections
-  const [connections, setConnections] = useState<MarketplaceConnection[]>([]);
-  const [selectedConnection, setSelectedConnection] = useState<MarketplaceConnection | null>(null);
+  // Shop connections
+  const [connections, setConnections] = useState<ShopConnection[]>([]);
+  const [selectedConnection, setSelectedConnection] = useState<ShopConnection | null>(null);
   const [connectionProducts, setConnectionProducts] = useState<ImportableProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState("");
@@ -186,16 +185,16 @@ export default function EtsyStyleMasterListing() {
   const maxTitleLength = 140;
   const maxTagCount = 13;
 
-  // Load marketplace connections
+  // Load shop connections
   useEffect(() => {
     const loadConnections = async () => {
       if (!user) return;
       
       const { data } = await supabase
-        .from('marketplace_connections')
-        .select('id, marketplace, store_name, is_active')
+        .from('shop_connections')
+        .select('id, platform, shop_name, is_connected')
         .eq('user_id', user.id)
-        .eq('is_active', true);
+        .eq('is_connected', true);
       
       if (data) {
         setConnections(data);
@@ -215,19 +214,28 @@ export default function EtsyStyleMasterListing() {
       
       setIsLoadingProducts(true);
       try {
-        // Load products from our products table that came from this marketplace
+        // Load products from marketplace_listings that came from this platform
         const { data } = await supabase
-          .from('products')
-          .select('id, title, price, stock, images, sku, brand, description')
+          .from('marketplace_listings')
+          .select('id, title, price, marketplace_data')
           .eq('user_id', user.id)
-          .eq('source', selectedConnection.marketplace)
+          .eq('platform', selectedConnection.platform)
           .order('title', { ascending: true });
         
         if (data) {
-          setConnectionProducts(data.map(p => ({
-            ...p,
-            images: p.images || [],
-          })));
+          setConnectionProducts(data.map(p => {
+            const marketplaceData = p.marketplace_data as Record<string, any> || {};
+            return {
+              id: p.id,
+              title: p.title,
+              price: p.price || 0,
+              images: marketplaceData.images || [],
+              sku: marketplaceData.sku || null,
+              brand: marketplaceData.brand || null,
+              description: marketplaceData.description || null,
+              category_path: marketplaceData.category_path,
+            };
+          }));
         }
       } catch (error) {
         console.error('Error loading products:', error);
@@ -438,7 +446,6 @@ export default function EtsyStyleMasterListing() {
     setTitle(selectedImportProduct.title);
     setDescription(selectedImportProduct.description || '');
     setPrice(selectedImportProduct.price?.toString() || '');
-    setQuantity(selectedImportProduct.stock?.toString() || '0');
     setSku(selectedImportProduct.sku || '');
     setBrand(selectedImportProduct.brand || '');
     setImages(selectedImportProduct.images || []);
@@ -474,7 +481,7 @@ export default function EtsyStyleMasterListing() {
         who_made_it: whoMadeIt,
         what_is_it: whatIsIt,
         when_made: whenMade,
-        source_marketplace: selectedConnection?.marketplace,
+        source_marketplace: selectedConnection?.platform,
         source_category_path: sourceCategoryPath,
         personalization_enabled: personalizationEnabled,
         personalization_instructions: personalizationInstructions,
@@ -504,154 +511,43 @@ export default function EtsyStyleMasterListing() {
     }
   };
 
-  const filteredProducts = connectionProducts.filter(p => 
-    p.title.toLowerCase().includes(productSearchQuery.toLowerCase())
-  );
-
-  const getMarketplaceLogo = (marketplace: string) => {
-    const logos: Record<string, string> = {
-      'ikas': 'I',
-      'trendyol': 'T',
-      'hepsiburada': 'H',
-      'amazon': 'A',
-      'n11': 'N',
-      'ciceksepeti': 'C',
-    };
-    return logos[marketplace] || marketplace[0].toUpperCase();
-  };
-
-  const getMarketplaceColor = (marketplace: string) => {
-    const colors: Record<string, string> = {
-      'ikas': 'bg-blue-500',
-      'trendyol': 'bg-orange-500',
-      'hepsiburada': 'bg-orange-600',
-      'amazon': 'bg-amber-500',
-      'n11': 'bg-purple-500',
-      'ciceksepeti': 'bg-pink-500',
-    };
-    return colors[marketplace] || 'bg-primary';
-  };
-
   return (
     <Layout>
-      <div className="h-full flex">
-        {/* Left Sidebar - Marketplace Sources */}
-        <div className="w-64 border-r border-border bg-card flex-shrink-0 flex flex-col">
-          <div className="p-4 border-b border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-1">Source Marketplace</h3>
-            <p className="text-xs text-muted-foreground">Import products from connected stores</p>
-          </div>
-          
-          <div className="p-3 space-y-1">
-            {connections.map((conn) => (
-              <button
-                key={conn.id}
-                onClick={() => setSelectedConnection(conn)}
-                className={cn(
-                  "w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left",
-                  selectedConnection?.id === conn.id
-                    ? "bg-primary/10 border border-primary/30"
-                    : "hover:bg-muted border border-transparent"
-                )}
-              >
-                <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold",
-                  getMarketplaceColor(conn.marketplace)
-                )}>
-                  {getMarketplaceLogo(conn.marketplace)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{conn.store_name || conn.marketplace}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{conn.marketplace}</p>
-                </div>
-              </button>
-            ))}
-            
-            {connections.length === 0 && (
-              <div className="text-center py-6 text-muted-foreground">
-                <Store className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No connected stores</p>
-                <Button variant="link" size="sm" onClick={() => navigate('/connections')}>
-                  Connect a store
-                </Button>
-              </div>
-            )}
-          </div>
-          
-          {/* Products from selected marketplace */}
-          {selectedConnection && (
-            <div className="flex-1 flex flex-col border-t border-border">
-              <div className="p-3 border-b border-border">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={productSearchQuery}
-                    onChange={(e) => setProductSearchQuery(e.target.value)}
-                    placeholder="Search products..."
-                    className="pl-9 h-9"
-                  />
-                </div>
-              </div>
-              
-              <ScrollArea className="flex-1">
-                <div className="p-2 space-y-1">
-                  {isLoadingProducts ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : filteredProducts.length === 0 ? (
-                    <div className="text-center py-6 text-muted-foreground">
-                      <Package className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                      <p className="text-xs">No products found</p>
-                    </div>
-                  ) : (
-                    filteredProducts.map((product) => (
-                      <button
-                        key={product.id}
-                        onClick={() => handleImportProduct(product)}
-                        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors text-left group"
-                      >
-                        {product.images[0] ? (
-                          <img 
-                            src={product.images[0]} 
-                            alt="" 
-                            className="w-10 h-10 rounded object-cover flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                            <Image className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{product.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            ₺{product.price} • Stok: {product.stock}
-                          </p>
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </button>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
+      <div className="flex flex-col h-full bg-background">
+        {/* Header */}
+        <div className="border-b bg-card px-6 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-semibold">
+              {listingId ? "Edit Master Listing" : "Create Master Listing"}
+            </h1>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => navigate(-1)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Save
+              </Button>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Top Tab Bar */}
-          <div className="border-b border-border bg-background sticky top-0 z-20">
-            <div className="flex items-center overflow-x-auto">
+        {/* Content */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Sidebar with sections */}
+          <div className="w-48 border-r bg-card p-4">
+            <div className="space-y-1">
               {mainSections.map((section) => (
                 <button
                   key={section.id}
                   onClick={() => scrollToSection(section.id)}
                   className={cn(
-                    "px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-all",
+                    "w-full text-left px-3 py-2 text-sm rounded-md transition-colors",
                     activeSection === section.id
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted"
                   )}
                 >
                   {section.label}
@@ -660,744 +556,227 @@ export default function EtsyStyleMasterListing() {
             </div>
           </div>
 
-          {/* Content Sections */}
-          <ScrollArea className="flex-1" ref={contentRef}>
-            <div className="max-w-4xl mx-auto p-6 space-y-8">
-              
+          {/* Main content */}
+          <ScrollArea ref={contentRef} className="flex-1 p-6">
+            <div className="max-w-3xl mx-auto space-y-12">
               {/* Photos Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['photos'] = el; }} id="photos">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Photos</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Add up to 10 photos. Tips: Use natural light and no flash.
-                  </p>
-                  <div className="grid grid-cols-5 gap-3">
-                    {images.map((img, i) => (
-                      <div key={i} className="aspect-square rounded-lg border-2 border-border overflow-hidden relative group">
-                        <img src={img} alt="" className="w-full h-full object-cover" />
-                        <button 
-                          onClick={() => setImages(images.filter((_, idx) => idx !== i))}
-                          className="absolute top-1 right-1 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                        {i === 0 && (
-                          <Badge className="absolute bottom-1 left-1 text-xs">Primary</Badge>
-                        )}
-                      </div>
-                    ))}
-                    {[...Array(Math.max(0, 10 - images.length))].map((_, i) => (
-                      <div key={`empty-${i}`} className="aspect-square rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer">
-                        <Plus className="h-6 w-6" />
-                      </div>
-                    ))}
-                  </div>
+              <section ref={(el) => (sectionRefs.current["photos"] = el)}>
+                <h2 className="text-lg font-semibold mb-4">Photos</h2>
+                <div className="grid grid-cols-4 gap-4">
+                  {images.map((img, index) => (
+                    <div key={index} className="relative aspect-square border rounded-lg overflow-hidden group">
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => setImages(images.filter((_, i) => i !== index))}
+                        className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="aspect-square border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:border-primary">
+                    <Plus className="h-8 w-8 text-muted-foreground" />
+                    <input type="file" accept="image/*" className="hidden" multiple />
+                  </label>
                 </div>
               </section>
 
               {/* Video Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['video'] = el; }} id="video">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Video</h2>
-                  <div className="flex items-center gap-4">
-                    <div className="w-32 h-32 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground">
-                      <Video className="h-8 w-8 mb-2" />
-                      <span className="text-xs">Add video</span>
-                    </div>
-                    <div className="flex-1">
-                      <Input
-                        value={videoUrl}
-                        onChange={(e) => setVideoUrl(e.target.value)}
-                        placeholder="Or paste a video URL..."
-                      />
-                    </div>
-                  </div>
+              <section ref={(el) => (sectionRefs.current["video"] = el)}>
+                <h2 className="text-lg font-semibold mb-4">Video</h2>
+                <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                  <Video className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">Add a video to showcase your product</p>
                 </div>
               </section>
 
               {/* Listing Details Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['listing-details'] = el; }} id="listing-details">
-                <div className="bg-card border border-border rounded-lg p-6 space-y-6">
-                  <h2 className="text-lg font-semibold">Listing details</h2>
-                  
-                  {/* Title */}
+              <section ref={(el) => (sectionRefs.current["listing-details"] = el)}>
+                <h2 className="text-lg font-semibold mb-4">Listing details</h2>
+                <div className="space-y-4">
                   <div>
-                    <Label className="text-sm text-muted-foreground">Title</Label>
+                    <Label>Title</Label>
                     <Input
                       value={title}
                       onChange={(e) => setTitle(e.target.value.slice(0, maxTitleLength))}
-                      placeholder="What are you selling?"
+                      placeholder="Enter title"
                       className="mt-1"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       {maxTitleLength - title.length} characters remaining
                     </p>
                   </div>
-                  
-                  {/* Source Category Display */}
-                  {sourceCategoryPath && (
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Source Category</Label>
-                      <div className="mt-1 p-3 bg-muted rounded-lg">
-                        <p className="text-sm">{sourceCategoryPath}</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* About this listing */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Who made it?</Label>
-                      <Select value={whoMadeIt} onValueChange={setWhoMadeIt}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="i_did">I did</SelectItem>
-                          <SelectItem value="collective">A member of my shop</SelectItem>
-                          <SelectItem value="another_company">Another company or person</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">What is it?</Label>
-                      <Select value={whatIsIt} onValueChange={setWhatIsIt}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="finished_product">A finished product</SelectItem>
-                          <SelectItem value="supply_tool">A supply or tool</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">When was it made?</Label>
-                      <Select value={whenMade} onValueChange={setWhenMade}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="made_to_order">Made to order</SelectItem>
-                          <SelectItem value="2020_2024">2020-2024</SelectItem>
-                          <SelectItem value="2010_2019">2010-2019</SelectItem>
-                          <SelectItem value="before_2010">Before 2010</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Description */}
                   <div>
-                    <Label className="text-sm text-muted-foreground">Description</Label>
+                    <Label>Description</Label>
                     <Textarea
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Tell the story of this item..."
-                      className="mt-1 min-h-32"
+                      placeholder="Describe your item"
+                      className="mt-1"
+                      rows={6}
                     />
                   </div>
-
-                  {/* Tags */}
                   <div>
-                    <Label className="text-sm text-muted-foreground">Tags</Label>
-                    <Input
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={handleAddTag}
-                      placeholder="Add a tag and press Enter"
-                      className="mt-1"
-                    />
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {tags.map((tag, i) => (
-                        <Badge key={i} variant="secondary" className="gap-1">
+                    <Label>Tags</Label>
+                    <div className="flex flex-wrap gap-2 mt-1 mb-2">
+                      {tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="gap-1">
                           {tag}
-                          <button onClick={() => removeTag(i)}>
+                          <button onClick={() => removeTag(index)}>
                             <X className="h-3 w-3" />
                           </button>
                         </Badge>
                       ))}
                     </div>
+                    <Input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={handleAddTag}
+                      placeholder="Add tags (press Enter)"
+                    />
                     <p className="text-xs text-muted-foreground mt-1">
                       {maxTagCount - tags.length} tags remaining
                     </p>
                   </div>
+                </div>
+              </section>
 
-                  {/* Materials */}
+              {/* Inventory & Pricing Section */}
+              <section ref={(el) => (sectionRefs.current["inventory"] = el)}>
+                <h2 className="text-lg font-semibold mb-4">Inventory & pricing</h2>
+                <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-sm text-muted-foreground">Materials</Label>
+                    <Label>Price</Label>
                     <Input
-                      value={materials}
-                      onChange={(e) => setMaterials(e.target.value)}
-                      placeholder="e.g. Cotton, polyester, metal"
+                      type="number"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="0.00"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Quantity</Label>
+                    <Input
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      placeholder="0"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>SKU</Label>
+                    <Input
+                      value={sku}
+                      onChange={(e) => setSku(e.target.value)}
+                      placeholder="Stock code"
                       className="mt-1"
                     />
                   </div>
                 </div>
               </section>
 
-              {/* Inventory & Pricing Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['inventory'] = el; }} id="inventory">
-                <div className="bg-card border border-border rounded-lg p-6 space-y-6">
-                  <h2 className="text-lg font-semibold">Inventory & pricing</h2>
-                  
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Price (₺)</Label>
-                      <Input
-                        type="number"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        placeholder="0.00"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Quantity</Label>
-                      <Input
-                        type="number"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        placeholder="0"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">SKU</Label>
-                      <Input
-                        value={sku}
-                        onChange={(e) => setSku(e.target.value)}
-                        placeholder="Internal SKU"
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </section>
-
               {/* Variations Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['variations'] = el; }} id="variations">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Variations</h2>
-                  
-                  {/* Sub-tabs */}
-                  <div className="border-b border-border mb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex">
-                        {variationSubTabs.map((tab) => (
-                          <button
-                            key={tab.id}
-                            onClick={() => setActiveVariationTab(tab.id)}
-                            className={cn(
-                              "px-4 py-2 text-sm font-medium border-b-2 transition-all",
-                              activeVariationTab === tab.id
-                                ? "border-primary text-foreground"
-                                : "border-transparent text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            {tab.label}
+              <section ref={(el) => (sectionRefs.current["variations"] = el)}>
+                <h2 className="text-lg font-semibold mb-4">Variations</h2>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Colors</Label>
+                    <div className="flex flex-wrap gap-2 mt-1 mb-2">
+                      {variantTypes.find(vt => vt.id === 'color')?.values.map((v) => (
+                        <Badge key={v.id} variant="outline" className="gap-1">
+                          {v.name}
+                          <button onClick={() => removeVariantOption('color', v.id)}>
+                            <X className="h-3 w-3" />
                           </button>
-                        ))}
-                      </div>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => setShowAllVariations(!showAllVariations)}
-                        className="text-primary"
-                      >
-                        {showAllVariations ? "Show less" : "Show all"}
-                        <ChevronDown className={cn("h-4 w-4 ml-1 transition-transform", showAllVariations && "rotate-180")} />
-                      </Button>
+                        </Badge>
+                      ))}
                     </div>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newColorOption}
+                        onChange={(e) => setNewColorOption(e.target.value)}
+                        placeholder="Add color"
+                      />
+                      <Button onClick={handleAddColorOption}>Add</Button>
+                    </div>
+                    {colorError && <p className="text-xs text-destructive mt-1">{colorError}</p>}
                   </div>
-
-                  {/* Variations Content */}
-                  {activeVariationTab === "variations" && (
-                    <div className="grid grid-cols-2 gap-8">
-                      {/* Primary Color Column */}
-                      <div className="space-y-0">
-                        <div className="py-3 border-b border-border text-xs font-medium text-muted-foreground uppercase">
-                          Primary color
-                        </div>
-                        {variantTypes.find(vt => vt.id === 'color')?.values.map((option) => (
-                          <div key={option.id} className="flex items-center gap-3 py-3 border-b border-border group">
-                            <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-move flex-shrink-0" />
-                            <span className="text-sm flex-1">{option.name}</span>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => removeVariantOption('color', option.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                          </div>
-                        ))}
-                        <div className="py-3 space-y-2">
-                          <div className="flex gap-2">
-                            <Input 
-                              value={newColorOption}
-                              onChange={(e) => { setNewColorOption(e.target.value); setColorError(""); }}
-                              onKeyDown={(e) => e.key === 'Enter' && handleAddColorOption()}
-                              placeholder="Add option"
-                              className={cn("flex-1", colorError && "border-destructive")}
-                            />
-                            <Button onClick={handleAddColorOption} size="sm">
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add
-                            </Button>
-                          </div>
-                          {colorError && <p className="text-destructive text-sm">{colorError}</p>}
-                        </div>
-                      </div>
-                      
-                      {/* Size Column */}
-                      <div className="space-y-0">
-                        <div className="py-3 border-b border-border text-xs font-medium text-muted-foreground uppercase">
-                          Size
-                        </div>
-                        {variantTypes.find(vt => vt.id === 'size')?.values.map((option) => (
-                          <div key={option.id} className="flex items-center gap-3 py-3 border-b border-border group">
-                            <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-move flex-shrink-0" />
-                            <span className="text-sm flex-1">{option.name}</span>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => removeVariantOption('size', option.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                          </div>
-                        ))}
-                        <div className="py-3 space-y-2">
-                          <div className="flex gap-2">
-                            <Input 
-                              value={newSizeOption}
-                              onChange={(e) => { setNewSizeOption(e.target.value); setSizeError(""); }}
-                              onKeyDown={(e) => e.key === 'Enter' && handleAddSizeOption()}
-                              placeholder="Add option"
-                              className={cn("flex-1", sizeError && "border-destructive")}
-                            />
-                            <Button onClick={handleAddSizeOption} size="sm">
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add
-                            </Button>
-                          </div>
-                          {sizeError && <p className="text-destructive text-sm">{sizeError}</p>}
-                        </div>
-                      </div>
+                  <div>
+                    <Label>Sizes</Label>
+                    <div className="flex flex-wrap gap-2 mt-1 mb-2">
+                      {variantTypes.find(vt => vt.id === 'size')?.values.map((v) => (
+                        <Badge key={v.id} variant="outline" className="gap-1">
+                          {v.name}
+                          <button onClick={() => removeVariantOption('size', v.id)}>
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
                     </div>
-                  )}
-
-                  {/* Price Tab */}
-                  {activeVariationTab === "price" && (
-                    <div className="space-y-4">
-                      {variantCombinations.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-8">
-                          Add color or size options first to set prices
-                        </p>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-4 mb-4">
-                            <span className="text-sm text-muted-foreground">Apply to all:</span>
-                            <Input
-                              type="number"
-                              placeholder="Enter price"
-                              className="w-32"
-                              onBlur={(e) => e.target.value && bulkUpdateField('price', e.target.value)}
-                            />
-                            <Button variant="outline" size="sm" onClick={() => bulkUpdateField('price', price)}>
-                              Use base price (₺{price || '0'})
-                            </Button>
-                          </div>
-                          <div className="border border-border rounded-lg overflow-hidden">
-                            <table className="w-full">
-                              <thead>
-                                <tr className="bg-muted/50">
-                                  {variantTypes.find(vt => vt.id === 'color')?.values.length > 0 && (
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Color</th>
-                                  )}
-                                  {variantTypes.find(vt => vt.id === 'size')?.values.length > 0 && (
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Size</th>
-                                  )}
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Price (₺)</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(showAllVariations ? variantCombinations : variantCombinations.slice(0, 5)).map((combo) => (
-                                  <tr key={combo.id} className="border-t border-border">
-                                    {combo.colorName && (
-                                      <td className="px-4 py-3 text-sm">{combo.colorName}</td>
-                                    )}
-                                    {combo.sizeName && (
-                                      <td className="px-4 py-3 text-sm">{combo.sizeName}</td>
-                                    )}
-                                    <td className="px-4 py-3">
-                                      <Input
-                                        type="number"
-                                        value={combo.price}
-                                        onChange={(e) => updateVariantCombination(combo.id, 'price', e.target.value)}
-                                        className="w-28 h-8"
-                                      />
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </>
-                      )}
+                    <div className="flex gap-2">
+                      <Input
+                        value={newSizeOption}
+                        onChange={(e) => setNewSizeOption(e.target.value)}
+                        placeholder="Add size"
+                      />
+                      <Button onClick={handleAddSizeOption}>Add</Button>
                     </div>
-                  )}
-
-                  {/* Quantity Tab */}
-                  {activeVariationTab === "quantity" && (
-                    <div className="space-y-4">
-                      {variantCombinations.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-8">
-                          Add color or size options first to set quantities
-                        </p>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-4 mb-4">
-                            <span className="text-sm text-muted-foreground">Apply to all:</span>
-                            <Input
-                              type="number"
-                              placeholder="Enter quantity"
-                              className="w-32"
-                              onBlur={(e) => e.target.value && bulkUpdateField('quantity', e.target.value)}
-                            />
-                          </div>
-                          <div className="border border-border rounded-lg overflow-hidden">
-                            <table className="w-full">
-                              <thead>
-                                <tr className="bg-muted/50">
-                                  {variantTypes.find(vt => vt.id === 'color')?.values.length > 0 && (
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Color</th>
-                                  )}
-                                  {variantTypes.find(vt => vt.id === 'size')?.values.length > 0 && (
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Size</th>
-                                  )}
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Quantity</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(showAllVariations ? variantCombinations : variantCombinations.slice(0, 5)).map((combo) => (
-                                  <tr key={combo.id} className="border-t border-border">
-                                    {combo.colorName && (
-                                      <td className="px-4 py-3 text-sm">{combo.colorName}</td>
-                                    )}
-                                    {combo.sizeName && (
-                                      <td className="px-4 py-3 text-sm">{combo.sizeName}</td>
-                                    )}
-                                    <td className="px-4 py-3">
-                                      <Input
-                                        type="number"
-                                        value={combo.quantity}
-                                        onChange={(e) => updateVariantCombination(combo.id, 'quantity', e.target.value)}
-                                        className="w-28 h-8"
-                                      />
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {/* SKU Tab */}
-                  {activeVariationTab === "sku" && (
-                    <div className="space-y-4">
-                      {variantCombinations.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-8">
-                          Add color or size options first to set SKUs
-                        </p>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-4 mb-4">
-                            <span className="text-sm text-muted-foreground">SKU prefix:</span>
-                            <Input
-                              placeholder="e.g. PROD-001"
-                              className="w-40"
-                              defaultValue={sku}
-                              onBlur={(e) => {
-                                const prefix = e.target.value;
-                                if (prefix) {
-                                  setVariantCombinations(prev => prev.map((vc, i) => ({
-                                    ...vc,
-                                    sku: `${prefix}-${String(i + 1).padStart(3, '0')}`
-                                  })));
-                                }
-                              }}
-                            />
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                setVariantCombinations(prev => prev.map((vc, i) => ({
-                                  ...vc,
-                                  sku: `${sku || 'SKU'}-${vc.colorName ? vc.colorName.substring(0, 3).toUpperCase() : ''}${vc.sizeName ? '-' + vc.sizeName.toUpperCase() : ''}`
-                                })));
-                              }}
-                            >
-                              Auto-generate
-                            </Button>
-                          </div>
-                          <div className="border border-border rounded-lg overflow-hidden">
-                            <table className="w-full">
-                              <thead>
-                                <tr className="bg-muted/50">
-                                  {variantTypes.find(vt => vt.id === 'color')?.values.length > 0 && (
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Color</th>
-                                  )}
-                                  {variantTypes.find(vt => vt.id === 'size')?.values.length > 0 && (
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Size</th>
-                                  )}
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">SKU</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(showAllVariations ? variantCombinations : variantCombinations.slice(0, 5)).map((combo) => (
-                                  <tr key={combo.id} className="border-t border-border">
-                                    {combo.colorName && (
-                                      <td className="px-4 py-3 text-sm">{combo.colorName}</td>
-                                    )}
-                                    {combo.sizeName && (
-                                      <td className="px-4 py-3 text-sm">{combo.sizeName}</td>
-                                    )}
-                                    <td className="px-4 py-3">
-                                      <Input
-                                        value={combo.sku}
-                                        onChange={(e) => updateVariantCombination(combo.id, 'sku', e.target.value)}
-                                        className="w-40 h-8"
-                                        placeholder="Enter SKU"
-                                      />
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Visibility Tab */}
-                  {activeVariationTab === "visibility" && (
-                    <div className="space-y-4">
-                      {variantCombinations.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-8">
-                          Add color or size options first to set visibility
-                        </p>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-4 mb-4">
-                            <Button variant="outline" size="sm" onClick={() => bulkUpdateField('isVisible', true)}>
-                              <Check className="h-4 w-4 mr-1" />
-                              Show all
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => bulkUpdateField('isVisible', false)}>
-                              <X className="h-4 w-4 mr-1" />
-                              Hide all
-                            </Button>
-                          </div>
-                          <div className="border border-border rounded-lg overflow-hidden">
-                            <table className="w-full">
-                              <thead>
-                                <tr className="bg-muted/50">
-                                  {variantTypes.find(vt => vt.id === 'color')?.values.length > 0 && (
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Color</th>
-                                  )}
-                                  {variantTypes.find(vt => vt.id === 'size')?.values.length > 0 && (
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Size</th>
-                                  )}
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Visible</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(showAllVariations ? variantCombinations : variantCombinations.slice(0, 5)).map((combo) => (
-                                  <tr key={combo.id} className="border-t border-border">
-                                    {combo.colorName && (
-                                      <td className="px-4 py-3 text-sm">{combo.colorName}</td>
-                                    )}
-                                    {combo.sizeName && (
-                                      <td className="px-4 py-3 text-sm">{combo.sizeName}</td>
-                                    )}
-                                    <td className="px-4 py-3">
-                                      <Switch
-                                        checked={combo.isVisible}
-                                        onCheckedChange={(checked) => updateVariantCombination(combo.id, 'isVisible', checked)}
-                                      />
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Photos Tab */}
-                  {activeVariationTab === "photos" && (
-                    <div className="space-y-4">
-                      {variantCombinations.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-8">
-                          Add color or size options first to assign photos
-                        </p>
-                      ) : (
-                        <div className="grid gap-4">
-                          {(showAllVariations ? variantCombinations : variantCombinations.slice(0, 5)).map((combo) => (
-                            <div key={combo.id} className="flex items-start gap-4 p-4 border border-border rounded-lg">
-                              <div className="min-w-32">
-                                <p className="text-sm font-medium">
-                                  {[combo.colorName, combo.sizeName].filter(Boolean).join(' / ')}
-                                </p>
-                              </div>
-                              <div className="flex-1 flex items-center gap-2 flex-wrap">
-                                {combo.photos.map((photo, i) => (
-                                  <div key={i} className="w-16 h-16 rounded border border-border overflow-hidden relative group">
-                                    <img src={photo} alt="" className="w-full h-full object-cover" />
-                                    <button
-                                      onClick={() => {
-                                        const newPhotos = combo.photos.filter((_, idx) => idx !== i);
-                                        updateVariantCombination(combo.id, 'photos', newPhotos);
-                                      }}
-                                      className="absolute inset-0 bg-destructive/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                      <X className="h-4 w-4 text-destructive-foreground" />
-                                    </button>
-                                  </div>
-                                ))}
-                                {images.length > 0 ? (
-                                  <div className="relative">
-                                    <Select
-                                      onValueChange={(url) => {
-                                        if (!combo.photos.includes(url)) {
-                                          updateVariantCombination(combo.id, 'photos', [...combo.photos, url]);
-                                        }
-                                      }}
-                                    >
-                                      <SelectTrigger className="w-16 h-16 border-dashed">
-                                        <Plus className="h-4 w-4" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {images.map((img, i) => (
-                                          <SelectItem key={i} value={img}>
-                                            <div className="flex items-center gap-2">
-                                              <img src={img} alt="" className="w-8 h-8 object-cover rounded" />
-                                              <span>Photo {i + 1}</span>
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                ) : (
-                                  <div className="w-16 h-16 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground">
-                                    <Image className="h-4 w-4" />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Processing Tab */}
-                  {activeVariationTab === "processing" && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p className="text-sm">Processing time settings coming soon</p>
-                    </div>
-                  )}
+                    {sizeError && <p className="text-xs text-destructive mt-1">{sizeError}</p>}
+                  </div>
                 </div>
               </section>
 
               {/* Shipping Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['shipping'] = el; }} id="shipping">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Shipping</h2>
-                  <Select value={shippingProfile} onValueChange={setShippingProfile}>
-                    <SelectTrigger><SelectValue placeholder="Choose shipping profile" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard Shipping</SelectItem>
-                      <SelectItem value="express">Express Shipping</SelectItem>
-                      <SelectItem value="free">Free Shipping</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <section ref={(el) => (sectionRefs.current["shipping"] = el)}>
+                <h2 className="text-lg font-semibold mb-4">Shipping</h2>
+                <Select value={shippingProfile} onValueChange={setShippingProfile}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select shipping profile" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard Shipping</SelectItem>
+                    <SelectItem value="express">Express Shipping</SelectItem>
+                    <SelectItem value="free">Free Shipping</SelectItem>
+                  </SelectContent>
+                </Select>
               </section>
 
               {/* Returns Section */}
-              <section ref={(el) => { if (el) sectionRefs.current['returns'] = el; }} id="returns">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <h2 className="text-lg font-semibold mb-4">Returns & exchanges</h2>
-                  <label className="flex items-center gap-3">
-                    <Switch
-                      checked={personalizationEnabled}
-                      onCheckedChange={setPersonalizationEnabled}
-                    />
-                    <span className="text-sm">Accept returns and exchanges</span>
-                  </label>
-                </div>
+              <section ref={(el) => (sectionRefs.current["returns"] = el)}>
+                <h2 className="text-lg font-semibold mb-4">Returns & exchanges</h2>
+                <p className="text-sm text-muted-foreground">
+                  Configure your return and exchange policy
+                </p>
               </section>
             </div>
           </ScrollArea>
-
-          {/* Footer */}
-          <div className="border-t border-border bg-background px-6 py-4 flex items-center justify-between">
-            <Button variant="outline" onClick={() => navigate("/master-listings")}>
-              Cancel
-            </Button>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" className="gap-2">
-                <Settings2 className="h-4 w-4" />
-                Preview
-              </Button>
-              <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                Save Master Listing
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Import Confirmation Dialog */}
+      {/* Import Dialog */}
       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Import Product</DialogTitle>
             <DialogDescription>
-              This will replace current form data with the selected product.
+              This will import the product data into your form.
             </DialogDescription>
           </DialogHeader>
           {selectedImportProduct && (
-            <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-              {selectedImportProduct.images[0] ? (
-                <img src={selectedImportProduct.images[0]} alt="" className="w-16 h-16 rounded object-cover" />
-              ) : (
-                <div className="w-16 h-16 rounded bg-muted-foreground/20 flex items-center justify-center">
-                  <Image className="h-6 w-6 text-muted-foreground" />
-                </div>
-              )}
-              <div>
-                <p className="font-medium">{selectedImportProduct.title}</p>
-                <p className="text-sm text-muted-foreground">
-                  ₺{selectedImportProduct.price} • Stock: {selectedImportProduct.stock}
-                </p>
-              </div>
+            <div className="py-4">
+              <p className="font-medium">{selectedImportProduct.title}</p>
+              <p className="text-sm text-muted-foreground">
+                Price: ${selectedImportProduct.price}
+              </p>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowImportDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={confirmImport}>
-              Import
-            </Button>
+            <Button onClick={confirmImport}>Import</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

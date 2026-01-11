@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,12 +36,24 @@ const tabs = [
   "Kargo",
 ];
 
+// Static categories for Hepsiburada (since marketplace_categories table doesn't exist)
+const staticCategories = [
+  { id: "1", name: "Elektronik", parent_id: null },
+  { id: "2", name: "Moda", parent_id: null },
+  { id: "3", name: "Ev & Yaşam", parent_id: null },
+  { id: "4", name: "Anne & Bebek", parent_id: null },
+  { id: "5", name: "Kozmetik", parent_id: null },
+  { id: "1-1", name: "Telefon", parent_id: "1" },
+  { id: "1-2", name: "Bilgisayar", parent_id: "1" },
+  { id: "2-1", name: "Kadın Giyim", parent_id: "2" },
+  { id: "2-2", name: "Erkek Giyim", parent_id: "2" },
+];
+
 interface HepsiburadaCategory {
   id: string;
-  remote_id: string | null;
   name: string;
-  full_path: string | null;
   parent_id: string | null;
+  full_path?: string;
 }
 
 export default function HepsiburadaListingNew() {
@@ -63,11 +75,12 @@ export default function HepsiburadaListingNew() {
   const [shippingCost, setShippingCost] = useState("0");
 
   // Category state
-  const [categories, setCategories] = useState<HepsiburadaCategory[]>([]);
+  const [categories, setCategories] = useState<HepsiburadaCategory[]>(
+    staticCategories.filter(c => c.parent_id === null)
+  );
   const [categoryPath, setCategoryPath] = useState<HepsiburadaCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<HepsiburadaCategory | null>(null);
   const [loadingCategories, setLoadingCategories] = useState(false);
-  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
 
   // Attributes state
   const [attributes, setAttributes] = useState<Array<{ name: string; required: boolean; value: string }>>([]);
@@ -87,23 +100,27 @@ export default function HepsiburadaListingNew() {
 
     setIsSaving(true);
     try {
-      const productData = {
+      const listingData = {
         title: title.trim(),
         description: description.trim() || null,
-        sku: stockCode.trim() || null,
         price: parseFloat(salePrice) || parseFloat(listPrice) || 0,
-        stock: parseInt(quantity) || 0,
-        brand: brand.trim() || null,
         status: status === 'active' ? 'active' : 'draft',
-        source: 'hepsiburada',
+        platform: 'hepsiburada',
         user_id: user.id,
-        marketplace_category_id: selectedCategory?.id || null,
-        trendyol_synced: false,
+        marketplace_data: {
+          sku: stockCode.trim() || null,
+          brand: brand.trim() || null,
+          barcode: barcode.trim() || null,
+          listPrice: parseFloat(listPrice) || 0,
+          quantity: parseInt(quantity) || 0,
+          categoryId: selectedCategory?.id || null,
+          attributes: attributes.reduce((acc, attr) => ({ ...acc, [attr.name]: attr.value }), {}),
+        },
       };
 
       const { error } = await supabase
-        .from('products')
-        .insert(productData);
+        .from('marketplace_listings')
+        .insert(listingData);
 
       if (error) throw error;
 
@@ -121,56 +138,14 @@ export default function HepsiburadaListingNew() {
     toast.info('Profile kaydetme özelliği yakında eklenecek');
   };
 
-  // Fetch categories from database
-  const fetchCategories = async (parentId: string | null) => {
-    setLoadingCategories(true);
-    try {
-      let query = supabase
-        .from('marketplace_categories')
-        .select('id, remote_id, name, full_path, parent_id')
-        .eq('marketplace_id', 'hepsiburada');
-      
-      if (parentId) {
-        query = query.eq('parent_id', parentId);
-      } else {
-        query = query.is('parent_id', null);
-      }
-      
-      const { data, error } = await query.order('name');
-      
-      if (error) throw error;
-      
-      setCategories(data || []);
-      setCurrentParentId(parentId);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      toast.error('Kategoriler yüklenirken hata oluştu');
-    } finally {
-      setLoadingCategories(false);
-    }
-  };
-
-  // Load initial categories
-  useEffect(() => {
-    if (activeTab === "Kategori") {
-      fetchCategories(null);
-    }
-  }, [activeTab]);
-
-  // Handle category selection
-  const handleCategorySelect = async (category: HepsiburadaCategory) => {
-    // Check if this category has subcategories
-    const { data: subCategories } = await supabase
-      .from('marketplace_categories')
-      .select('id')
-      .eq('marketplace_id', 'hepsiburada')
-      .eq('parent_id', category.id)
-      .limit(1);
+  // Handle category selection using static data
+  const handleCategorySelect = (category: HepsiburadaCategory) => {
+    const subCategories = staticCategories.filter(c => c.parent_id === category.id);
     
-    if (subCategories && subCategories.length > 0) {
+    if (subCategories.length > 0) {
       // Has subcategories, navigate deeper
       setCategoryPath([...categoryPath, category]);
-      fetchCategories(category.id);
+      setCategories(subCategories);
     } else {
       // This is a leaf category, select it
       setSelectedCategory(category);
@@ -196,9 +171,10 @@ export default function HepsiburadaListingNew() {
       setCategoryPath(newPath);
       
       if (newPath.length > 0) {
-        fetchCategories(newPath[newPath.length - 1].id);
+        const parentId = newPath[newPath.length - 1].id;
+        setCategories(staticCategories.filter(c => c.parent_id === parentId));
       } else {
-        fetchCategories(null);
+        setCategories(staticCategories.filter(c => c.parent_id === null));
       }
       
       setSelectedCategory(null);
@@ -323,7 +299,9 @@ export default function HepsiburadaListingNew() {
                   <Check className="h-5 w-5" />
                   <span className="font-medium">Seçilen Kategori:</span>
                 </div>
-                <p className="mt-1 text-foreground">{selectedCategory.full_path || selectedCategory.name}</p>
+                <p className="mt-1 text-foreground">
+                  {categoryPath.map(c => c.name).join(' > ')}
+                </p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -331,7 +309,7 @@ export default function HepsiburadaListingNew() {
                   onClick={() => {
                     setSelectedCategory(null);
                     setCategoryPath([]);
-                    fetchCategories(null);
+                    setCategories(staticCategories.filter(c => c.parent_id === null));
                   }}
                 >
                   Değiştir
@@ -492,7 +470,7 @@ export default function HepsiburadaListingNew() {
                 Teslimat Süresi <span className="text-destructive">*</span>
               </Label>
               <Select value={deliveryTime} onValueChange={setDeliveryTime}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -500,6 +478,7 @@ export default function HepsiburadaListingNew() {
                   <SelectItem value="2">2 İş Günü</SelectItem>
                   <SelectItem value="3">3 İş Günü</SelectItem>
                   <SelectItem value="5">5 İş Günü</SelectItem>
+                  <SelectItem value="7">7 İş Günü</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -510,13 +489,13 @@ export default function HepsiburadaListingNew() {
               </Label>
               <Input
                 type="number"
-                placeholder="0.00"
                 value={shippingCost}
                 onChange={(e) => setShippingCost(e.target.value)}
+                placeholder="0.00"
                 className="h-11"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                0 girerseniz ücretsiz kargo olarak gösterilir
+                Ücretsiz kargo için 0 girin
               </p>
             </div>
           </div>
@@ -529,62 +508,60 @@ export default function HepsiburadaListingNew() {
 
   return (
     <Layout>
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col bg-background pb-20">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => navigate("/inventory")}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Geri
-            </Button>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-[#FF6600] rounded-sm flex items-center justify-center">
-                <span className="text-white font-bold text-xs">H</span>
+        <div className="border-b border-border bg-card px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => navigate(-1)}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-[#FF6600] rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">HB</span>
+                </div>
+                <h1 className="text-lg font-semibold">Hepsiburada Ürün Ekle</h1>
               </div>
-              <h1 className="text-lg font-semibold">Hepsiburada Ürün Oluştur</h1>
             </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 flex overflow-hidden pb-20">
-          {/* Left: Tabs */}
-          <div className="w-64 border-r border-border bg-muted/30 overflow-y-auto">
-            <nav className="p-4 space-y-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={cn(
-                    "w-full text-left px-4 py-3 text-sm rounded-sm transition-colors",
-                    activeTab === tab
-                      ? "bg-[#FF6600] text-white font-medium"
-                      : "text-foreground hover:bg-muted"
-                  )}
-                >
-                  {tab}
-                </button>
-              ))}
-            </nav>
+        {/* Tab navigation */}
+        <div className="border-b border-border bg-card px-6">
+          <div className="flex gap-1 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  "px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2",
+                  activeTab === tab
+                    ? "border-[#FF6600] text-[#FF6600]"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* Right: Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-2xl">
-              {renderTabContent()}
-            </div>
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="max-w-2xl mx-auto">
+            {renderTabContent()}
           </div>
         </div>
 
         {/* Footer */}
         <ListingFooter
-          onSaveAsProfile={handleSaveAsProfile}
           onPublish={handlePublish}
-          isLoading={isSaving}
+          onSaveAsProfile={handleSaveAsProfile}
+          isPublishing={isSaving}
         />
       </div>
     </Layout>
