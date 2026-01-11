@@ -26,6 +26,8 @@ import Categories from "./pages/Categories";
 import Settings from "./pages/Settings";
 import MasterListings from "./pages/MasterListings";
 import BulkEdit from "./pages/BulkEdit";
+import Studio from "./pages/Studio";
+import Profiles from "./pages/Profiles";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -210,6 +212,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <BulkEdit />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/studio"
+              element={
+                <ProtectedRoute>
+                  <Studio />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profiles"
+              element={
+                <ProtectedRoute>
+                  <Profiles />
                 </ProtectedRoute>
               }
             />

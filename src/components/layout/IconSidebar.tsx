@@ -1,4 +1,4 @@
-import { Home, Package, ShoppingCart, BarChart3, Settings, Link } from "lucide-react";
+import { LayoutList, ShoppingCart, User, ImageIcon, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -8,11 +8,10 @@ interface IconSidebarProps {
 }
 
 const navItems = [
-  { icon: Home, label: "Listings", path: "/inventory" },
-  { icon: Package, label: "Master Ürünler", path: "/master-listings" },
+  { icon: LayoutList, label: "Listings", path: "/inventory" },
   { icon: ShoppingCart, label: "Siparişler", path: "/orders" },
-  { icon: BarChart3, label: "Raporlar", path: "/analytics" },
-  { icon: Link, label: "Entegrasyonlar", path: "/connections" },
+  { icon: User, label: "Profiller", path: "/profiles" },
+  { icon: ImageIcon, label: "Studio", path: "/studio" },
   { icon: Settings, label: "Ayarlar", path: "/settings" },
 ];
 
