@@ -25,6 +25,7 @@ import Pricing from "./pages/Pricing";
 import Connections from "./pages/Connections";
 import Categories from "./pages/Categories";
 import Settings from "./pages/Settings";
+import Billing from "./pages/Billing";
 import MasterListings from "./pages/MasterListings";
 import BulkEdit from "./pages/BulkEdit";
 import Studio from "./pages/Studio";
@@ -165,6 +166,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings/billing"
+              element={
+                <ProtectedRoute>
+                  <Billing />
                 </ProtectedRoute>
               }
             />

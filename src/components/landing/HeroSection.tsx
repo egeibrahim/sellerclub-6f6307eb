@@ -1,19 +1,20 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { PlatformLogo, platformBgColors } from "@/components/common/PlatformLogos";
 
-// Turkish marketplace platforms with their brand colors
+// Turkish marketplace platforms
 const platforms = [
-  { name: "Trendyol", color: "#F27A1A", textColor: "#fff", icon: "T" },
-  { name: "Hepsiburada", color: "#FF6000", textColor: "#fff", icon: "hb" },
-  { name: "Amazon", color: "#232F3E", textColor: "#FF9900", icon: "a" },
-  { name: "N11", color: "#7B2CBF", textColor: "#fff", icon: "n11" },
-  { name: "Çiçeksepeti", color: "#E31E52", textColor: "#fff", icon: "Ç" },
-  { name: "ikas", color: "#6366F1", textColor: "#fff", icon: "ikas" },
-  { name: "Shopify", color: "#96BF48", textColor: "#fff", icon: "S" },
-  { name: "Etsy", color: "#F56400", textColor: "#fff", icon: "e" },
-  { name: "WooCommerce", color: "#96588A", textColor: "#fff", icon: "W" },
-  { name: "Pazarama", color: "#00A4EF", textColor: "#fff", icon: "P" },
-  { name: "PTTAvm", color: "#FFD100", textColor: "#1a1a1a", icon: "P" },
+  { id: "trendyol", name: "Trendyol" },
+  { id: "hepsiburada", name: "Hepsiburada" },
+  { id: "amazon", name: "Amazon" },
+  { id: "n11", name: "N11" },
+  { id: "ciceksepeti", name: "Çiçeksepeti" },
+  { id: "ikas", name: "ikas" },
+  { id: "shopify", name: "Shopify" },
+  { id: "etsy", name: "Etsy" },
+  { id: "woocommerce", name: "WooCommerce" },
+  { id: "pazarama", name: "Pazarama" },
+  { id: "pttavm", name: "PTT AVM" },
 ];
 
 export function HeroSection() {
@@ -43,21 +44,14 @@ export function HeroSection() {
                 
                 return (
                   <div
-                    key={platform.name}
+                    key={platform.id}
                     className="absolute left-1/2 top-1/2 transition-transform duration-300"
                     style={{
                       transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
                     }}
                   >
-                    <div
-                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shadow-lg hover:scale-110 transition-transform cursor-default"
-                      style={{ 
-                        backgroundColor: platform.color,
-                        color: platform.textColor,
-                      }}
-                      title={platform.name}
-                    >
-                      {platform.icon}
+                    <div className="hover:scale-110 transition-transform cursor-default">
+                      <PlatformLogo platform={platform.id} size={44} />
                     </div>
                   </div>
                 );

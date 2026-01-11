@@ -7,6 +7,7 @@ import { useListingCounts, useMasterListingCounts } from "@/hooks/useListingCoun
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CopyToShopPopup } from "@/components/inventory/CopyToShopPopup";
 import { ConnectShopDialog } from "@/components/connections/ConnectShopDialog";
+import { PlatformLogo } from "@/components/common/PlatformLogos";
 import {
   DropdownMenu,
   DropdownMenuContent,
