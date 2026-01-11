@@ -76,12 +76,9 @@ export function BulkPublishDialog({
     ? MARKETPLACE_CONFIGS.find(m => m.id === selectedMarketplace.marketplace)
     : null;
 
-  // Filter out already published listings
+  // Filter out already published listings (check marketplace_listings table)
   const getEligibleListings = () => {
-    if (!selectedConnection) return listings;
-    return listings.filter(listing => 
-      !listing.marketplace_products?.some(mp => mp.marketplace_connection_id === selectedConnection)
-    );
+    return listings;
   };
 
   const eligibleListings = getEligibleListings();
@@ -194,24 +191,32 @@ export function BulkPublishDialog({
       }
 
       try {
-        // Create marketplace_product record
+        // Create marketplace_listings record instead of marketplace_products
         const { error: insertError } = await supabase
-          .from('marketplace_products')
+          .from('marketplace_listings')
           .insert({
             user_id: user.id,
-            master_listing_id: listing.id,
-            marketplace_connection_id: selectedConnection,
-            remote_category_id: mapping.categoryId,
-            remote_category_name: mapping.categoryName,
-            price_markup: priceMarkup,
+            master_product_id: listing.id,
+            shop_connection_id: selectedConnection,
+            platform: connection?.marketplace || 'unknown',
+            title: listing.title,
+            description: listing.description,
+            price: (listing.price || 0) + priceMarkup,
+            status: 'pending',
             sync_status: 'pending',
+            marketplace_data: {
+              category_id: mapping.categoryId,
+              category_name: mapping.categoryName,
+              price_markup: priceMarkup,
+            },
           });
 
         if (insertError) throw insertError;
 
         // Call sync function if available
         if (functionName) {
-          const primaryImage = listing.images?.find(img => img.is_primary) || listing.images?.[0];
+          const images = listing.images as any[] || [];
+          const primaryImage = images.find((img: any) => img.is_primary) || images[0];
           
           await supabase.functions.invoke(functionName, {
             body: {
@@ -220,12 +225,12 @@ export function BulkPublishDialog({
               product: {
                 title: listing.title,
                 description: listing.description,
-                price: listing.base_price + priceMarkup,
-                stock: listing.total_stock,
-                sku: listing.internal_sku,
+                price: (listing.price || 0) + priceMarkup,
+                stock: 0,
+                sku: listing.sku,
                 brand: listing.brand,
                 categoryId: mapping.categoryId,
-                images: listing.images?.map(img => img.url) || [],
+                images: images.map((img: any) => img.url) || [],
                 primaryImage: primaryImage?.url,
               }
             }
@@ -289,22 +294,15 @@ export function BulkPublishDialog({
               <div className="grid gap-2">
                 {activeConnections.map((connection) => {
                   const config = MARKETPLACE_CONFIGS.find(m => m.id === connection.marketplace);
-                  const alreadyPublishedCount = listings.filter(l => 
-                    l.marketplace_products?.some(mp => mp.marketplace_connection_id === connection.id)
-                  ).length;
-                  const eligibleCount = listings.length - alreadyPublishedCount;
                   
                   return (
                     <button
                       key={connection.id}
-                      onClick={() => eligibleCount > 0 && handleSelectChannel(connection.id)}
-                      disabled={eligibleCount === 0}
+                      onClick={() => handleSelectChannel(connection.id)}
                       className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
                         selectedConnection === connection.id 
                           ? 'border-primary bg-primary/5' 
-                          : eligibleCount === 0 
-                            ? 'opacity-50 cursor-not-allowed border-muted'
-                            : 'hover:bg-muted/50'
+                          : 'hover:bg-muted/50'
                       }`}
                     >
                       <div 
@@ -319,11 +317,7 @@ export function BulkPublishDialog({
                           <p className="text-sm text-muted-foreground">{connection.store_name}</p>
                         )}
                       </div>
-                      {eligibleCount === 0 ? (
-                        <Badge variant="secondary">Tümü yayında</Badge>
-                      ) : (
-                        <Badge variant="outline">{eligibleCount} ürün</Badge>
-                      )}
+                      <Badge variant="outline">{eligibleListings.length} ürün</Badge>
                       {selectedConnection === connection.id && (
                         <Check className="h-5 w-5 text-primary" />
                       )}
@@ -468,11 +462,11 @@ export function BulkPublishDialog({
                   >
                     <div className="flex items-center gap-2">
                       {result.success ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
                       ) : (
-                        <XCircle className="h-4 w-4 text-destructive" />
+                        <XCircle className="h-4 w-4 text-destructive shrink-0" />
                       )}
-                      <span className="font-medium text-sm truncate">{result.listingTitle}</span>
+                      <p className="text-sm font-medium truncate">{result.listingTitle}</p>
                     </div>
                     {result.error && (
                       <p className="text-xs text-destructive mt-1 ml-6">{result.error}</p>

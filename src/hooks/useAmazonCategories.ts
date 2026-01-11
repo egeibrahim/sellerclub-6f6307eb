@@ -26,13 +26,13 @@ export function useAmazonCategories() {
     setError(null);
 
     try {
-      // Check if Amazon connection exists
+      // Check if Amazon connection exists using shop_connections table
       const { data: connection } = await supabase
-        .from("marketplace_connections")
+        .from("shop_connections")
         .select("*")
         .eq("user_id", user.id)
-        .eq("marketplace", "amazon")
-        .eq("is_active", true)
+        .eq("platform", "amazon")
+        .eq("is_connected", true)
         .maybeSingle();
 
       if (!connection) {
