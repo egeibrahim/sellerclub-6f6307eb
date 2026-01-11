@@ -76,6 +76,16 @@ export function PublishToMarketplaceDialog({
     setStep('confirm');
   };
 
+  // Get the base price from listing
+  const getBasePrice = (): number => {
+    return listing?.price ?? listing?.base_price ?? 0;
+  };
+
+  // Get SKU from listing
+  const getSku = (): string | null => {
+    return listing?.sku ?? listing?.internal_sku ?? null;
+  };
+
   // Publish to marketplace
   const handlePublish = async () => {
     if (!listing || !selectedConnection || !selectedCategory || !user) return;
@@ -84,6 +94,8 @@ export function PublishToMarketplaceDialog({
     try {
       // Create marketplace_listings record instead of marketplace_products
       const connection = connections.find(c => c.id === selectedConnection);
+      const basePrice = getBasePrice();
+      
       const { error: insertError } = await supabase
         .from('marketplace_listings')
         .insert({
@@ -93,7 +105,7 @@ export function PublishToMarketplaceDialog({
           platform: connection?.marketplace || 'unknown',
           title: listing.title,
           description: listing.description,
-          price: (listing.price || 0) + priceMarkup,
+          price: basePrice + priceMarkup,
           status: 'pending',
           sync_status: 'pending',
           marketplace_data: {
@@ -124,8 +136,8 @@ export function PublishToMarketplaceDialog({
         }
 
         if (functionName) {
-          const images = listing.images as any[] || [];
-          const primaryImage = images.find((img: any) => img.is_primary) || images[0];
+          const images = listing.images || [];
+          const primaryImage = images.find((img) => img.is_primary) || images[0];
           
           await supabase.functions.invoke(functionName, {
             body: {
@@ -134,12 +146,12 @@ export function PublishToMarketplaceDialog({
               product: {
                 title: listing.title,
                 description: listing.description,
-                price: (listing.price || 0) + priceMarkup,
-                stock: 0,
-                sku: listing.sku,
+                price: basePrice + priceMarkup,
+                stock: listing.total_stock || 0,
+                sku: getSku(),
                 brand: listing.brand,
                 categoryId: selectedCategory.category_id,
-                images: images.map((img: any) => img.url) || [],
+                images: images.map((img) => img.url) || [],
                 primaryImage: primaryImage?.url,
               }
             }
@@ -159,6 +171,8 @@ export function PublishToMarketplaceDialog({
   };
 
   if (!listing) return null;
+
+  const basePrice = getBasePrice();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -283,7 +297,7 @@ export function PublishToMarketplaceDialog({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Baz Fiyat</span>
-                <span className="font-medium">₺{(listing.price || 0).toLocaleString('tr-TR')}</span>
+                <span className="font-medium">₺{basePrice.toLocaleString('tr-TR')}</span>
               </div>
             </div>
 
@@ -297,7 +311,7 @@ export function PublishToMarketplaceDialog({
                   className="w-32"
                 />
                 <span className="text-sm text-muted-foreground">
-                  = ₺{((listing.price || 0) + priceMarkup).toLocaleString('tr-TR')}
+                  = ₺{(basePrice + priceMarkup).toLocaleString('tr-TR')}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">

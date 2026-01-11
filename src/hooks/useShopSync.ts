@@ -30,47 +30,47 @@ export function useShopSync() {
     mutationFn: async (): Promise<SyncResult> => {
       if (!user) throw new Error("User not authenticated");
 
-       setProgress({
-         status: "fetching",
-         message: "Trendyol'dan ürünler alınıyor...",
-         current: 0,
-         total: 0,
-       });
+      setProgress({
+        status: "fetching",
+        message: "Trendyol'dan ürünler alınıyor...",
+        current: 0,
+        total: 0,
+      });
 
-       // Load Trendyol credentials from the user's saved connection
-       const { data: connection, error: connError } = await supabase
-         .from("marketplace_connections")
-         .select("credentials, is_active")
-         .eq("user_id", user.id)
-         .eq("marketplace", "trendyol")
-         .maybeSingle();
+      // Load Trendyol credentials from shop_connections
+      const { data: connection, error: connError } = await supabase
+        .from("shop_connections")
+        .select("api_credentials, is_connected")
+        .eq("user_id", user.id)
+        .eq("platform", "trendyol")
+        .maybeSingle();
 
-       if (connError) throw connError;
-       if (!connection || !connection.is_active) {
-         throw new Error(
-           "Trendyol bağlantısı aktif değil. Lütfen önce Bağlantılar sayfasından Trendyol API bilgilerinizi kaydedin."
-         );
-       }
+      if (connError) throw connError;
+      if (!connection || !connection.is_connected) {
+        throw new Error(
+          "Trendyol bağlantısı aktif değil. Lütfen önce Bağlantılar sayfasından Trendyol API bilgilerinizi kaydedin."
+        );
+      }
 
-       // Fetch products from Trendyol
-       const { data: fetchData, error: fetchError } = await supabase.functions.invoke(
-         "trendyol-sync",
-         {
-           body: { action: "fetch_products", credentials: connection.credentials },
-         }
-       );
+      // Fetch products from Trendyol
+      const { data: fetchData, error: fetchError } = await supabase.functions.invoke(
+        "trendyol-sync",
+        {
+          body: { action: "fetch_products", credentials: connection.api_credentials },
+        }
+      );
 
-       if (fetchError) {
-         throw new Error(`Trendyol API hatası: ${fetchError.message}`);
-       }
+      if (fetchError) {
+        throw new Error(`Trendyol API hatası: ${fetchError.message}`);
+      }
 
-       if (fetchData?.success === false) {
-         throw new Error(fetchData?.message || "Trendyol'dan ürün alınamadı");
-       }
+      if (fetchData?.success === false) {
+        throw new Error(fetchData?.message || "Trendyol'dan ürün alınamadı");
+      }
 
-       if (!fetchData?.products || !Array.isArray(fetchData.products)) {
-         throw new Error("Trendyol'dan ürün alınamadı");
-       }
+      if (!fetchData?.products || !Array.isArray(fetchData.products)) {
+        throw new Error("Trendyol'dan ürün alınamadı");
+      }
 
       const products = fetchData.products;
       const total = products.length;
@@ -86,47 +86,47 @@ export function useShopSync() {
       let updated = 0;
       const errors: string[] = [];
 
-      // Process products in batches
+      // Process products in batches - save to marketplace_listings
       for (let i = 0; i < products.length; i++) {
         const product = products[i];
 
         try {
-          // Check if product exists by barcode/sku
           const { data: existing } = await supabase
-            .from("products")
+            .from("marketplace_listings")
             .select("id")
             .eq("user_id", user.id)
-            .eq("source", "trendyol")
-            .eq("sku", product.barcode || product.stockCode)
+            .eq("platform", "trendyol")
+            .eq("external_id", product.barcode || product.stockCode)
             .maybeSingle();
 
-          const productData = {
+          const listingData = {
             title: product.title || product.productName || "Untitled",
             price: product.salePrice || product.listPrice || 0,
-            stock: product.quantity || 0,
-            sku: product.barcode || product.stockCode || null,
-            brand: product.brand?.name || product.brandName || null,
-            color: product.color || null,
-            size: product.size || null,
             description: product.description || null,
-            images: product.images?.map((img: any) => img.url || img) || [],
-            source: "trendyol",
+            platform: "trendyol",
             status: product.onSale ? "active" : "draft",
             user_id: user.id,
-            trendyol_synced: true,
-            last_synced_at: new Date().toISOString(),
+            external_id: product.barcode || product.stockCode || null,
+            last_sync_at: new Date().toISOString(),
+            sync_status: "synced",
+            marketplace_data: {
+              stock: product.quantity || 0,
+              sku: product.barcode || product.stockCode,
+              brand: product.brand?.name || product.brandName,
+              color: product.color,
+              size: product.size,
+              images: product.images?.map((img: any) => img.url || img) || [],
+            },
           };
 
           if (existing) {
-            // Update existing product
             await supabase
-              .from("products")
-              .update(productData)
+              .from("marketplace_listings")
+              .update(listingData)
               .eq("id", existing.id);
             updated++;
           } else {
-            // Create new product
-            await supabase.from("products").insert(productData);
+            await supabase.from("marketplace_listings").insert(listingData);
             created++;
           }
 
@@ -177,28 +177,26 @@ export function useShopSync() {
         total: 0,
       });
 
-      // Load ikas credentials from the user's saved connection
       const { data: connection, error: connError } = await supabase
-        .from("marketplace_connections")
-        .select("credentials, is_active")
+        .from("shop_connections")
+        .select("api_credentials, is_connected")
         .eq("user_id", user.id)
-        .eq("marketplace", "ikas")
+        .eq("platform", "ikas")
         .maybeSingle();
 
       if (connError) throw connError;
-      if (!connection || !connection.is_active) {
+      if (!connection || !connection.is_connected) {
         throw new Error(
           "İkas bağlantısı aktif değil. Lütfen önce Bağlantılar sayfasından İkas API bilgilerinizi kaydedin."
         );
       }
 
-      // Fetch products from ikas
       const { data: fetchData, error: fetchError } = await supabase.functions.invoke(
         "ikas-sync",
         {
           body: { 
             action: "fetch_products", 
-            credentials: connection.credentials,
+            credentials: connection.api_credentials,
             limit: 100,
             page: 1
           },
@@ -207,10 +205,6 @@ export function useShopSync() {
 
       if (fetchError) {
         throw new Error(`İkas API hatası: ${fetchError.message}`);
-      }
-
-      if (fetchData?.success === false) {
-        throw new Error(fetchData?.details || fetchData?.error || "İkas'tan ürün alınamadı");
       }
 
       if (!fetchData?.products || !Array.isArray(fetchData.products)) {
@@ -231,42 +225,44 @@ export function useShopSync() {
       let updated = 0;
       const errors: string[] = [];
 
-      // Process products
       for (let i = 0; i < products.length; i++) {
         const product = products[i];
 
         try {
-          // Check if product exists by sku
           const { data: existing } = await supabase
-            .from("products")
+            .from("marketplace_listings")
             .select("id")
             .eq("user_id", user.id)
-            .eq("source", "ikas")
-            .eq("sku", product.sku || product.id)
+            .eq("platform", "ikas")
+            .eq("external_id", product.sku || product.id)
             .maybeSingle();
 
-          const productData = {
+          const listingData = {
             title: product.title || "Untitled",
             price: product.price || 0,
-            stock: product.stock || 0,
-            sku: product.sku || product.id || null,
-            brand: product.brand || null,
             description: product.description || null,
-            images: product.images || [],
-            source: "ikas",
+            platform: "ikas",
             status: "active",
             user_id: user.id,
-            last_synced_at: new Date().toISOString(),
+            external_id: product.sku || product.id,
+            last_sync_at: new Date().toISOString(),
+            sync_status: "synced",
+            marketplace_data: {
+              stock: product.stock || 0,
+              sku: product.sku,
+              brand: product.brand,
+              images: product.images || [],
+            },
           };
 
           if (existing) {
             await supabase
-              .from("products")
-              .update(productData)
+              .from("marketplace_listings")
+              .update(listingData)
               .eq("id", existing.id);
             updated++;
           } else {
-            await supabase.from("products").insert(productData);
+            await supabase.from("marketplace_listings").insert(listingData);
             created++;
           }
 
@@ -286,14 +282,12 @@ export function useShopSync() {
     onSuccess: (result) => {
       setProgress({
         status: "success",
-        message: `${result.synced} ürün senkronize edildi (${result.created} yeni, ${result.updated} güncellendi)`,
+        message: `${result.synced} ürün senkronize edildi`,
         current: result.synced,
         total: result.synced,
       });
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast.success(
-        `İkas senkronizasyonu tamamlandı: ${result.created} yeni, ${result.updated} güncellendi`
-      );
+      toast.success(`İkas senkronizasyonu tamamlandı`);
     },
     onError: (error: Error) => {
       setProgress({
@@ -307,12 +301,7 @@ export function useShopSync() {
   });
 
   const resetProgress = () => {
-    setProgress({
-      status: "idle",
-      message: "",
-      current: 0,
-      total: 0,
-    });
+    setProgress({ status: "idle", message: "", current: 0, total: 0 });
   };
 
   return {

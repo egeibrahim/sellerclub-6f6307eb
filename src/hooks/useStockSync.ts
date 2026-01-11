@@ -30,109 +30,93 @@ export function useStockSync() {
       newStock: number; 
       sourceMarketplace: string;
     }) => {
-      // Get all marketplace products for this master listing
-      const { data: marketplaceProducts, error: fetchError } = await supabase
-        .from('marketplace_products')
-        .select('*, marketplace_connections(*)')
-        .eq('master_listing_id', masterListingId);
+      // Get all marketplace listings for this master product
+      const { data: marketplaceListings, error: fetchError } = await supabase
+        .from('marketplace_listings')
+        .select('*, shop_connections(*)')
+        .eq('master_product_id', masterListingId);
 
       if (fetchError) throw fetchError;
 
       const results: StockSyncLog[] = [];
 
-      for (const product of marketplaceProducts || []) {
-        const connection = product.marketplace_connections as any;
-        if (!connection || !connection.is_active) continue;
+      for (const listing of marketplaceListings || []) {
+        const connection = listing.shop_connections as any;
+        if (!connection || !connection.is_connected) continue;
 
-        const marketplace = connection.marketplace as string;
-        if (marketplace === sourceMarketplace) continue;
+        const platform = listing.platform;
+        if (platform === sourceMarketplace) continue;
 
-        const specificData = product.marketplace_specific_data as Record<string, any> || {};
-        const previousStock = specificData.stock || 0;
+        const marketplaceData = listing.marketplace_data as Record<string, any> || {};
+        const previousStock = marketplaceData.stock || 0;
 
         try {
-          // Call the appropriate sync function to update stock
-          const functionName = `${marketplace}-sync`;
+          // Call the appropriate sync function
+          const functionName = `${platform}-sync`;
           const { error: syncError } = await supabase.functions.invoke(functionName, {
             body: {
               action: 'update_product',
               connectionId: connection.id,
-              productId: product.remote_product_id,
+              productId: listing.external_id,
               updates: { stock: newStock },
             },
           });
 
           if (syncError) throw syncError;
 
-          // Update local marketplace product
-          const currentData = (product.marketplace_specific_data || {}) as Record<string, any>;
+          // Update local marketplace listing
           await supabase
-            .from('marketplace_products')
+            .from('marketplace_listings')
             .update({
-              marketplace_specific_data: {
-                ...currentData,
+              marketplace_data: {
+                ...marketplaceData,
                 stock: newStock,
               },
-              last_synced_at: new Date().toISOString(),
+              last_sync_at: new Date().toISOString(),
               sync_status: 'synced',
             })
-            .eq('id', product.id);
+            .eq('id', listing.id);
 
-          // Log the sync
-          const { data: logData } = await supabase
-            .from('stock_sync_logs')
-            .insert({
-              user_id: user!.id,
-              master_listing_id: masterListingId,
-              source_marketplace: sourceMarketplace,
-              target_marketplace: marketplace,
-              previous_stock: previousStock,
-              new_stock: newStock,
-              sync_status: 'success',
-            })
-            .select()
-            .single();
-
-          if (logData) results.push(logData as StockSyncLog);
+          results.push({
+            id: `log-${Date.now()}`,
+            user_id: user!.id,
+            master_listing_id: masterListingId,
+            source_marketplace: sourceMarketplace,
+            target_marketplace: platform,
+            previous_stock: previousStock,
+            new_stock: newStock,
+            sync_status: 'success',
+            error_message: null,
+            created_at: new Date().toISOString(),
+          });
         } catch (error: any) {
-          // Log the failed sync
-          const { data: logData } = await supabase
-            .from('stock_sync_logs')
-            .insert({
-              user_id: user!.id,
-              master_listing_id: masterListingId,
-              source_marketplace: sourceMarketplace,
-              target_marketplace: marketplace,
-              previous_stock: previousStock,
-              new_stock: newStock,
-              sync_status: 'failed',
-              error_message: error.message,
-            })
-            .select()
-            .single();
-
-          if (logData) results.push(logData as StockSyncLog);
+          results.push({
+            id: `log-${Date.now()}`,
+            user_id: user!.id,
+            master_listing_id: masterListingId,
+            source_marketplace: sourceMarketplace,
+            target_marketplace: platform,
+            previous_stock: previousStock,
+            new_stock: newStock,
+            sync_status: 'failed',
+            error_message: error.message,
+            created_at: new Date().toISOString(),
+          });
         }
       }
-
-      // Update master listing total stock
-      await supabase
-        .from('master_listings')
-        .update({ total_stock: newStock })
-        .eq('id', masterListingId);
 
       return results;
     },
     onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ['master-listings'] });
-      queryClient.invalidateQueries({ queryKey: ['marketplace-products'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       
       const successCount = results.filter(r => r.sync_status === 'success').length;
       const failCount = results.filter(r => r.sync_status === 'failed').length;
 
-      if (failCount === 0) {
+      if (failCount === 0 && successCount > 0) {
         toast({ title: `Stok ${successCount} pazaryerine senkronize edildi` });
-      } else {
+      } else if (failCount > 0) {
         toast({ 
           title: "Stok senkronizasyonu kısmen başarılı", 
           description: `${successCount} başarılı, ${failCount} başarısız`,

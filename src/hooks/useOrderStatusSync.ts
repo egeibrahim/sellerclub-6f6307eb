@@ -22,10 +22,10 @@ export function useOrderStatusSync() {
       return data;
     },
     onSuccess: (data) => {
-      if (data.success) {
+      if (data?.success) {
         toast.success('Durum pazaryerine senkronize edildi');
       } else {
-        toast.warning(data.message || 'Senkronizasyon tamamlanamadı');
+        toast.warning(data?.message || 'Senkronizasyon tamamlanamadı');
       }
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
@@ -37,20 +37,8 @@ export function useOrderStatusSync() {
 
   const updateWithTracking = useMutation({
     mutationFn: async ({ orderId, trackingNumber, trackingCompany }: { orderId: string; trackingNumber: string; trackingCompany?: string }) => {
-      // First update locally
-      const { error } = await supabase
-        .from('orders')
-        .update({ 
-          tracking_number: trackingNumber,
-          tracking_company: trackingCompany,
-          status: 'shipped',
-          shipped_date: new Date().toISOString(),
-        })
-        .eq('id', orderId);
-
-      if (error) throw error;
-
-      // Then sync to marketplace
+      // Sync to marketplace via edge function
+      // Note: Local orders table doesn't exist, so we only sync to marketplace
       const { data, error: syncError } = await supabase.functions.invoke('order-status-sync', {
         body: { 
           orderId, 
@@ -62,7 +50,7 @@ export function useOrderStatusSync() {
 
       if (syncError) {
         console.error('Sync error:', syncError);
-        // Don't throw - local update succeeded
+        throw syncError;
       }
 
       return data;
