@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Check, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { platformConfigs, getPlatformConfig } from "@/config/platformConfigs";
 interface ConnectShopDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialPlatform?: string | null;
 }
 
 type Step = 'select-platform' | 'credentials' | 'success';
@@ -54,10 +55,25 @@ const credentialFields: Record<string, { key: string; label: string; placeholder
   ],
 };
 
-export const ConnectShopDialog = ({ open, onOpenChange }: ConnectShopDialogProps) => {
+export const ConnectShopDialog = ({ open, onOpenChange, initialPlatform }: ConnectShopDialogProps) => {
   const [step, setStep] = useState<Step>('select-platform');
   const [selectedPlatform, setSelectedPlatform] = useState<typeof platforms[0] | null>(null);
   const [shopName, setShopName] = useState('');
+  
+  // Handle initial platform selection
+  React.useEffect(() => {
+    if (open && initialPlatform) {
+      const platform = platforms.find(p => p.id === initialPlatform);
+      if (platform) {
+        handlePlatformSelect(platform);
+      }
+    }
+    if (!open) {
+      setStep('select-platform');
+      setSelectedPlatform(null);
+      setShopName('');
+    }
+  }, [open, initialPlatform]);
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();

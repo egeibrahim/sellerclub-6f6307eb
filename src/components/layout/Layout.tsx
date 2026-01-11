@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { IconSidebar } from "./IconSidebar";
-import { ShopFilterSidebar } from "./ShopFilterSidebar";
+import { VelaSidebar } from "./VelaSidebar";
 import { ShopHeader } from "./ShopHeader";
 import { ConnectBanner } from "./ConnectBanner";
 import { ConnectShopDialog } from "@/components/connections/ConnectShopDialog";
@@ -18,20 +18,9 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
   const { shops, selectedShop, setSelectedShop, isMasterView } = useShop();
   const { syncBidirectional, isLoading: isSyncing } = useMarketplaceSync();
   
-  const [statusFilter, setStatusFilter] = useState("all");
   const [showConnectDialog, setShowConnectDialog] = useState(false);
 
   // Convert Shop to ShopConnection format for components
-  const shopConnections = shops.filter(s => s.id !== 'master').map(shop => ({
-    id: shop.id,
-    shop_name: shop.name,
-    platform: shop.platform,
-    shop_icon: shop.icon,
-    shop_color: shop.color,
-    is_connected: shop.isConnected,
-    last_sync_at: shop.lastSyncAt,
-  }));
-
   const selectedShopConnection = selectedShop.id !== 'master' ? {
     id: selectedShop.id,
     shop_name: selectedShop.name,
@@ -43,48 +32,36 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
     api_credentials: {},
   } : null;
 
-  const handleSelectShop = (shopId: string | null) => {
-    if (shopId === null) {
-      // Select master shop (all shops view)
-      const masterShop = shops.find(s => s.id === 'master');
-      if (masterShop) setSelectedShop(masterShop);
-    } else {
-      const shop = shops.find(s => s.id === shopId);
-      if (shop) setSelectedShop(shop);
-    }
-  };
-
   const handleSync = async () => {
     if (selectedShopConnection) {
       await syncBidirectional(selectedShopConnection);
     }
   };
 
-  const isInventoryPage = location.pathname === "/inventory" || location.pathname.startsWith("/inventory/");
-  const showShopSidebar = isInventoryPage || location.pathname.startsWith("/master-listings");
+  // Determine which pages show the VelaSidebar
+  const showVelaSidebar = 
+    location.pathname === "/inventory" || 
+    location.pathname.startsWith("/inventory/") ||
+    location.pathname === "/master-listings" ||
+    location.pathname.startsWith("/master-listings/");
 
   return (
     <div className="min-h-screen bg-background flex">
       {/* Icon Sidebar - Always visible */}
       <IconSidebar className="fixed left-0 top-0 h-screen z-50" />
 
-      {/* Shop Filter Sidebar - Only on inventory pages */}
-      {showShopSidebar && (
-        <ShopFilterSidebar
-          className="fixed left-14 top-0 h-screen z-40"
-          shops={shopConnections}
-          selectedShopId={isMasterView ? null : selectedShop.id}
-          onSelectShop={handleSelectShop}
-          onConnectShop={() => setShowConnectDialog(true)}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-        />
+      {/* Vela-style Sidebar - Only on inventory/master-listings pages */}
+      {showVelaSidebar && (
+        <VelaSidebar className="fixed left-14 top-0 h-screen z-40" />
       )}
 
       {/* Main Content */}
-      <main className={`flex-1 ${showShopSidebar ? 'ml-70' : 'ml-14'}`} style={{ marginLeft: showShopSidebar ? '17.5rem' : '3.5rem' }}>
-        {/* Shop Header */}
-        {showHeader && !isMasterView && selectedShopConnection && (
+      <main 
+        className="flex-1" 
+        style={{ marginLeft: showVelaSidebar ? '17.5rem' : '3.5rem' }}
+      >
+        {/* Shop Header - Only for connected shops */}
+        {showHeader && !isMasterView && selectedShopConnection && showVelaSidebar && (
           <>
             <ShopHeader
               shop={selectedShopConnection}
@@ -104,7 +81,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
         )}
 
         {/* Master View Header */}
-        {showHeader && isMasterView && (
+        {showHeader && isMasterView && showVelaSidebar && (
           <div className="flex items-center justify-between p-4 border-b border-border bg-background">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold">
