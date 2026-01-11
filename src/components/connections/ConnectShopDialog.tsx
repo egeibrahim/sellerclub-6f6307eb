@@ -81,35 +81,18 @@ export const ConnectShopDialog = ({ open, onOpenChange }: ConnectShopDialogProps
     setSelectedPlatform(platform);
     
     if (platform.authType === 'oauth') {
-      // Redirect to OAuth flow
-      handleOAuthConnect(platform);
+      // OAuth platforms are not yet implemented
+      toast({
+        title: "Çok Yakında",
+        description: `${platform.name} entegrasyonu çok yakında kullanılabilir olacak.`,
+      });
+      return;
     } else {
       setStep('credentials');
     }
   };
 
-  const handleOAuthConnect = async (platform: typeof platforms[0]) => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('oauth-init', {
-        body: { platform: platform.id },
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        window.location.href = data.url;
-      }
-    } catch (error: any) {
-      toast({
-        title: "Connection Error",
-        description: error.message || "Failed to initiate OAuth connection",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // OAuth function removed - platforms marked as "Coming Soon" until oauth-init is implemented
 
   const handleCredentialSubmit = async () => {
     if (!selectedPlatform || !user || !shopName.trim()) return;
@@ -203,11 +186,17 @@ export const ConnectShopDialog = ({ open, onOpenChange }: ConnectShopDialogProps
                 onClick={() => handlePlatformSelect(platform)}
                 disabled={isLoading}
                 className={cn(
-                  "flex items-center gap-3 p-4 rounded-lg border-2 border-border",
+                  "flex items-center gap-3 p-4 rounded-lg border-2 border-border relative",
                   "hover:border-primary/50 hover:bg-accent transition-all",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                  "disabled:opacity-50 disabled:cursor-not-allowed",
+                  platform.authType === 'oauth' && "opacity-60"
                 )}
               >
+                {platform.authType === 'oauth' && (
+                  <span className="absolute top-1 right-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                    Çok Yakında
+                  </span>
+                )}
                 <div 
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
                   style={{ backgroundColor: platform.color }}
