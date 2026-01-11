@@ -37,6 +37,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ShopChangeDialog />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
@@ -211,7 +212,6 @@ const App = () => (
             />
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <ShopChangeDialog />
         </BrowserRouter>
         </TooltipProvider>
       </ShopProvider>
