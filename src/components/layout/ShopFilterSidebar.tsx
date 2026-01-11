@@ -52,13 +52,13 @@ export const ShopFilterSidebar = ({
 
   return (
     <div className={cn(
-      "w-56 bg-sidebar border-r border-border flex flex-col overflow-hidden",
+      "w-56 bg-sidebar border-r border-sidebar-border flex flex-col overflow-hidden",
       className
     )}>
       {/* Shop Selector Header */}
-      <div className="p-3 border-b border-border">
+      <div className="p-3 border-b border-sidebar-border">
         <Collapsible open={shopsOpen} onOpenChange={setShopsOpen}>
-          <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-medium text-foreground hover:text-primary transition-colors">
+          <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-medium text-sidebar-foreground hover:text-sidebar-primary transition-colors">
             <div className="flex items-center gap-2">
               {selectedShop ? (
                 <>
@@ -87,8 +87,8 @@ export const ShopFilterSidebar = ({
               className={cn(
                 "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors",
                 selectedShopId === null 
-                  ? "bg-primary/10 text-primary" 
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  ? "bg-sidebar-primary/20 text-sidebar-primary" 
+                  : "text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
               <Store className="h-4 w-4" />
@@ -103,8 +103,8 @@ export const ShopFilterSidebar = ({
                 className={cn(
                   "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors",
                   selectedShopId === shop.id 
-                    ? "bg-primary/10 text-primary" 
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    ? "bg-sidebar-primary/20 text-sidebar-primary" 
+                    : "text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}
               >
                 <div 
@@ -115,7 +115,7 @@ export const ShopFilterSidebar = ({
                 </div>
                 <span className="truncate">{shop.shop_name}</span>
                 {!shop.is_connected && (
-                  <span className="ml-auto text-xs text-yellow-600">●</span>
+                  <span className="ml-auto text-xs text-yellow-500">●</span>
                 )}
               </button>
             ))}
@@ -124,7 +124,7 @@ export const ShopFilterSidebar = ({
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start gap-2 text-muted-foreground"
+              className="w-full justify-start gap-2 text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent"
               onClick={onConnectShop}
             >
               <Plus className="h-4 w-4" />
@@ -137,7 +137,7 @@ export const ShopFilterSidebar = ({
       {/* Status Filters */}
       <div className="flex-1 overflow-auto p-3">
         <Collapsible open={statusOpen} onOpenChange={setStatusOpen}>
-          <CollapsibleTrigger className="flex items-center justify-between w-full text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          <CollapsibleTrigger className="flex items-center justify-between w-full text-xs font-semibold text-sidebar-muted uppercase tracking-wide mb-2">
             <span>Status</span>
             {statusOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           </CollapsibleTrigger>
@@ -150,8 +150,8 @@ export const ShopFilterSidebar = ({
                 className={cn(
                   "w-full flex items-center justify-between px-2 py-1.5 rounded text-sm transition-colors",
                   statusFilter === item.key 
-                    ? "bg-primary/10 text-primary font-medium" 
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    ? "bg-sidebar-primary/20 text-sidebar-primary font-medium" 
+                    : "text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}
               >
                 <div className="flex items-center gap-2">
