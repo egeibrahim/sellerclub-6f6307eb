@@ -85,7 +85,9 @@ export default function MasterListings() {
   };
 
   const handleDeleteImage = (imageId: string) => {
-    deleteImage.mutate(imageId);
+    if (selectedListing) {
+      deleteImage.mutate({ masterListingId: selectedListing.id, imageId });
+    }
   };
 
   const handleCreate = () => {

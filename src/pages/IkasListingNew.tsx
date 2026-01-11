@@ -671,7 +671,7 @@ export default function IkasListingNew() {
         <ListingFooter
           onPublish={handlePublish}
           onSaveAsProfile={handleSaveAsProfile}
-          isPublishing={isSaving}
+          isLoading={isSaving}
         />
       </div>
     </Layout>

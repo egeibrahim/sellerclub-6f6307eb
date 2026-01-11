@@ -680,7 +680,7 @@ export default function TrendyolListingNew() {
         <ListingFooter
           onPublish={handlePublish}
           onSaveAsProfile={handleSaveAsProfile}
-          isPublishing={isSaving}
+          isLoading={isSaving}
         />
       </div>
     </Layout>

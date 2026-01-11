@@ -461,7 +461,7 @@ export default function ListingNew() {
         <ListingFooter
           onPublish={handlePublish}
           onSaveAsProfile={handleSaveAsProfile}
-          isPublishing={isSaving}
+          isLoading={isSaving}
         />
       </div>
     </Layout>

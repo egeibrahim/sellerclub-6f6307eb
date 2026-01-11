@@ -561,7 +561,7 @@ export default function HepsiburadaListingNew() {
         <ListingFooter
           onPublish={handlePublish}
           onSaveAsProfile={handleSaveAsProfile}
-          isPublishing={isSaving}
+          isLoading={isSaving}
         />
       </div>
     </Layout>
