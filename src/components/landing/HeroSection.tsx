@@ -1,124 +1,94 @@
-import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
+// Turkish marketplace platforms with their brand colors
 const platforms = [
-  { name: "Amazon", color: "#FF9900", icon: "🛒" },
-  { name: "Etsy", color: "#F56400", icon: "🎨" },
-  { name: "Trendyol", color: "#F27A1A", icon: "🛍️" },
-  { name: "Hepsiburada", color: "#FF6000", icon: "📦" },
-  { name: "Shopify", color: "#96BF48", icon: "🏪" },
-  { name: "N11", color: "#7B2CBF", icon: "🔮" },
-  { name: "Çiçeksepeti", color: "#E31E52", icon: "🌸" },
-  { name: "ikas", color: "#6366F1", icon: "💎" },
+  { name: "Trendyol", color: "#F27A1A", textColor: "#fff", icon: "T" },
+  { name: "Hepsiburada", color: "#FF6000", textColor: "#fff", icon: "hb" },
+  { name: "Amazon", color: "#232F3E", textColor: "#FF9900", icon: "a" },
+  { name: "N11", color: "#7B2CBF", textColor: "#fff", icon: "n11" },
+  { name: "Çiçeksepeti", color: "#E31E52", textColor: "#fff", icon: "Ç" },
+  { name: "ikas", color: "#6366F1", textColor: "#fff", icon: "ikas" },
+  { name: "Shopify", color: "#96BF48", textColor: "#fff", icon: "S" },
+  { name: "Etsy", color: "#F56400", textColor: "#fff", icon: "e" },
+  { name: "WooCommerce", color: "#96588A", textColor: "#fff", icon: "W" },
+  { name: "Pazarama", color: "#00A4EF", textColor: "#fff", icon: "P" },
+  { name: "PTTAvm", color: "#FFD100", textColor: "#1a1a1a", icon: "P" },
 ];
 
 export function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-      {/* Animated Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-primary/5" />
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-secondary/20 rounded-full blur-3xl animate-pulse delay-1000" />
-      </div>
-
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left Content */}
-          <div className="text-center lg:text-left space-y-8">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium animate-fade-in">
-              <Sparkles className="w-4 h-4" />
-              <span>AI Destekli E-Ticaret Yönetimi</span>
+    <section id="home" className="pt-24 pb-8 bg-white overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center relative">
+          {/* Orbit Container */}
+          <div className="relative mx-auto w-full max-w-4xl h-[420px] sm:h-[500px] flex items-center justify-center">
+            {/* Orbit Path - Elliptical */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div 
+                className="w-[500px] h-[280px] sm:w-[700px] sm:h-[350px] border border-dashed border-gray-300 rounded-[50%]"
+                style={{ transform: 'rotateX(65deg) rotateZ(-5deg)' }}
+              />
             </div>
 
-            {/* Main Heading */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight animate-fade-in">
-              Tüm Pazaryerlerini
-              <span className="block bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-                Tek Yerden Yönetin
-              </span>
-            </h1>
-
-            {/* Subheading */}
-            <p className="text-lg sm:text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0 animate-fade-in">
-              Amazon, Etsy, Trendyol, Hepsiburada ve daha fazlası. Ürünlerinizi 
-              tek panelden yönetin, AI ile optimize edin, satışlarınızı katlayın.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-fade-in">
-              <Link to="/auth">
-                <Button
-                  size="lg"
-                  className="w-full sm:w-auto bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-lg px-8 py-6 shadow-lg shadow-primary/25"
-                >
-                  Ücretsiz Başla
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </Button>
-              </Link>
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full sm:w-auto text-lg px-8 py-6"
-                onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
-              >
-                Özellikleri Keşfet
-              </Button>
-            </div>
-
-            {/* Trust Badges */}
-            <div className="flex items-center gap-6 justify-center lg:justify-start text-sm text-muted-foreground animate-fade-in">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span>Kredi kartı gerekmez</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span>14 gün ücretsiz deneme</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Content - Animated Platform Orbit */}
-          <div className="relative flex items-center justify-center">
-            <div className="relative w-80 h-80 sm:w-96 sm:h-96">
-              {/* Center Hub */}
-              <div className="absolute inset-1/3 bg-gradient-to-br from-primary to-primary/70 rounded-2xl shadow-2xl shadow-primary/30 flex items-center justify-center z-10">
-                <span className="text-primary-foreground font-bold text-3xl">M</span>
-              </div>
-
-              {/* Orbiting Platforms */}
+            {/* Orbiting Platforms */}
+            <div className="absolute inset-0 pointer-events-none">
               {platforms.map((platform, index) => {
-                const angle = (index * 360) / platforms.length;
-                const delay = index * 0.5;
+                const totalPlatforms = platforms.length;
+                const angle = (index / totalPlatforms) * 360 - 90;
+                const radiusX = 320;
+                const radiusY = 160;
+                const x = Math.cos((angle * Math.PI) / 180) * radiusX;
+                const y = Math.sin((angle * Math.PI) / 180) * radiusY;
+                
                 return (
                   <div
                     key={platform.name}
-                    className="absolute w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-card shadow-lg border flex items-center justify-center text-2xl animate-orbit"
+                    className="absolute left-1/2 top-1/2 transition-transform duration-300"
                     style={{
-                      top: "50%",
-                      left: "50%",
-                      transform: `rotate(${angle}deg) translateX(140px) rotate(-${angle}deg)`,
-                      animationDelay: `${delay}s`,
+                      transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
                     }}
-                    title={platform.name}
                   >
-                    {platform.icon}
+                    <div
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shadow-lg hover:scale-110 transition-transform cursor-default"
+                      style={{ 
+                        backgroundColor: platform.color,
+                        color: platform.textColor,
+                      }}
+                      title={platform.name}
+                    >
+                      {platform.icon}
+                    </div>
                   </div>
                 );
               })}
+            </div>
 
-              {/* Orbit Ring */}
-              <div className="absolute inset-0 rounded-full border-2 border-dashed border-muted-foreground/20 animate-spin-slow" />
+            {/* Center Content */}
+            <div className="relative z-10 text-center px-4">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight tracking-tight">
+                E-Ticaret satıcıları için
+                <br />
+                <span className="text-foreground">AI destekli güç</span>
+              </h1>
+
+              <div className="mt-8">
+                <Link to="/auth">
+                  <Button 
+                    size="lg" 
+                    className="rounded-full px-10 py-6 text-base font-medium bg-primary hover:bg-primary/90 text-white"
+                  >
+                    Başla
+                  </Button>
+                </Link>
+                <p className="mt-4 text-sm text-muted-foreground">
+                  1 hafta ücretsiz deneme · Kredi kartı gerekmez
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Bottom Gradient Fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
     </section>
   );
 }
