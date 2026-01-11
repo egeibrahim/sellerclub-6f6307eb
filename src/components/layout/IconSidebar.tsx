@@ -20,12 +20,12 @@ export const IconSidebar = ({ className }: IconSidebarProps) => {
   return (
     <TooltipProvider delayDuration={100}>
       <div className={cn(
-        "w-14 bg-sidebar border-r border-border flex flex-col items-center py-4 gap-2",
+        "w-14 bg-sidebar border-r border-sidebar-border flex flex-col items-center py-4 gap-2",
         className
       )}>
         {/* Logo */}
-        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center mb-4">
-          <span className="text-primary-foreground font-bold text-sm">SC</span>
+        <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center mb-4">
+          <span className="text-sidebar-primary-foreground font-bold text-sm">SC</span>
         </div>
 
         {/* Navigation Icons */}
@@ -36,10 +36,10 @@ export const IconSidebar = ({ className }: IconSidebarProps) => {
                 to={item.path}
                 className={cn(
                   "w-10 h-10 rounded-lg flex items-center justify-center",
-                  "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  "text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   "transition-colors"
                 )}
-                activeClassName="bg-primary/10 text-primary"
+                activeClassName="bg-sidebar-primary/20 text-sidebar-primary"
               >
                 <item.icon className="h-5 w-5" />
               </NavLink>
