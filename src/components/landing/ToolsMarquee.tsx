@@ -1,54 +1,55 @@
 const toolsRow1 = [
-  "Listeleme Oluştur",
-  "CSV İçe Aktar",
-  "Toplu Düzenleme",
-  "Listeleme Puanlama",
-  "SEO Optimizasyonu",
-  "Fiyat Karşılaştırma",
-  "Stok Takibi",
-  "Kategori Eşleme",
+  "Ürün oluştur",
+  "CSV içe aktar",
+  "Toplu düzenleme",
+  "Ürün puanlama",
+  "Yayın planlama",
+  "POD desteği",
+  "Aktif kanallar",
+  "Medya kütüphanesi",
+  "Kırp & genişlet",
 ];
 
 const toolsRow2 = [
-  "Ürün Kopyalama",
-  "Toplu Yayınlama",
-  "Varyasyon Yönetimi",
-  "Tag Optimizasyonu",
-  "Açıklama Yazıcı",
-  "Başlık Optimizasyonu",
-  "Rakip Analizi",
-  "Performans Raporu",
+  "Ürün optimize et",
+  "Ürün düzenle",
+  "Ürün kopyala",
+  "Ürün birleştir",
+  "Özellik puanlama",
+  "Güncelleme planlama",
+  "Ürün profilleri",
+  "Fotoğraf birleştirme",
+  "Mockup oluşturma",
 ];
 
 const toolsRow3 = [
-  "Fotoğraf Stüdyosu",
-  "Arka Plan Kaldırma",
-  "AI Görsel Üretimi",
-  "Video Oluşturma",
-  "Logo Ekleme",
-  "Boyut Ayarlama",
-  "Watermark Ekleme",
-  "Format Dönüştürme",
+  "Ürün izole et",
+  "Çapraz kanal kopyala",
+  "Video oluşturma",
+  "Fotoğraf arka planları",
+  "Ürün yayınla",
+  "Çoklu kanal",
+  "CSV dışa aktar",
+  "Alt metin oluşturma",
+  "Fotoğraf iyileştirme",
 ];
 
 function MarqueeRow({ tools, direction = "left", speed = 30 }: { tools: string[]; direction?: "left" | "right"; speed?: number }) {
-  const duplicatedTools = [...tools, ...tools];
+  const duplicatedTools = [...tools, ...tools, ...tools];
   
   return (
     <div className="flex overflow-hidden py-2">
-      <div
-        className={`flex gap-4 ${direction === "left" ? "animate-marquee-left" : "animate-marquee-right"}`}
-        style={{ 
-          animationDuration: `${speed}s`,
-        }}
+      <div 
+        className={`flex gap-3 ${direction === "left" ? "animate-marquee-left" : "animate-marquee-right"}`}
+        style={{ animationDuration: `${speed}s` }}
       >
         {duplicatedTools.map((tool, index) => (
-          <div
-            key={`${tool}-${index}`}
-            className="flex-shrink-0 px-6 py-3 rounded-full bg-card border text-sm font-medium text-foreground hover:bg-primary/10 hover:border-primary/50 transition-colors whitespace-nowrap"
+          <span
+            key={index}
+            className="inline-flex items-center px-4 py-2 rounded-full bg-gray-100 text-sm font-medium text-foreground whitespace-nowrap"
           >
             {tool}
-          </div>
+          </span>
         ))}
       </div>
     </div>
@@ -57,22 +58,20 @@ function MarqueeRow({ tools, direction = "left", speed = 30 }: { tools: string[]
 
 export function ToolsMarquee() {
   return (
-    <section className="py-20 bg-muted/30 overflow-hidden">
+    <section className="py-20 bg-white overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
-        <div className="text-center max-w-3xl mx-auto space-y-4">
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
-            Güçlü Araçlar Koleksiyonu
-          </h2>
-          <p className="text-lg text-muted-foreground">
-            İşinizi kolaylaştıran 50'den fazla araç
-          </p>
-        </div>
+        <h2 className="text-3xl sm:text-4xl font-bold text-center text-foreground">
+          <span className="italic text-primary">100+ AI aracı</span>{" "}
+          tek platformda
+          <br />
+          <span className="italic text-primary">e-ticaret</span> için tasarlandı
+        </h2>
       </div>
-
-      <div className="space-y-4 max-w-[100vw]">
-        <MarqueeRow tools={toolsRow1} direction="left" speed={35} />
-        <MarqueeRow tools={toolsRow2} direction="right" speed={40} />
-        <MarqueeRow tools={toolsRow3} direction="left" speed={30} />
+      
+      <div className="space-y-3">
+        <MarqueeRow tools={toolsRow1} direction="left" speed={40} />
+        <MarqueeRow tools={toolsRow2} direction="right" speed={35} />
+        <MarqueeRow tools={toolsRow3} direction="left" speed={45} />
       </div>
     </section>
   );

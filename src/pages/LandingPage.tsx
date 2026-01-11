@@ -7,7 +7,7 @@ import { StatsSection } from "@/components/landing/StatsSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { ToolsMarquee } from "@/components/landing/ToolsMarquee";
 import { PlatformsSection } from "@/components/landing/PlatformsSection";
-import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
+import { ToolsShowcase } from "@/components/landing/ToolsShowcase";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { FooterSection } from "@/components/landing/FooterSection";
 
@@ -23,7 +23,7 @@ export default function LandingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="animate-pulse text-muted-foreground">Yükleniyor...</div>
       </div>
     );
@@ -34,14 +34,14 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-white">
       <LandingNavbar />
       <HeroSection />
       <StatsSection />
       <FeaturesSection />
       <ToolsMarquee />
       <PlatformsSection />
-      <TestimonialsSection />
+      <ToolsShowcase />
       <PricingSection />
       <FooterSection />
     </div>

@@ -1,69 +1,134 @@
 const platforms = [
-  { name: "Amazon", logo: "🛒", color: "#FF9900" },
-  { name: "Etsy", logo: "🎨", color: "#F56400" },
-  { name: "Trendyol", logo: "🛍️", color: "#F27A1A" },
-  { name: "Hepsiburada", logo: "📦", color: "#FF6000" },
-  { name: "Shopify", logo: "🏪", color: "#96BF48" },
-  { name: "N11", logo: "🔮", color: "#7B2CBF" },
-  { name: "Çiçeksepeti", logo: "🌸", color: "#E31E52" },
-  { name: "ikas", logo: "💎", color: "#6366F1" },
-  { name: "eBay", logo: "🏷️", color: "#E53238" },
-  { name: "WooCommerce", logo: "🔧", color: "#96588A" },
-  { name: "GittiGidiyor", logo: "🚀", color: "#FF6000" },
-  { name: "Morhipo", logo: "👗", color: "#00B5AD" },
+  { 
+    name: "Trendyol", 
+    color: "#F27A1A", 
+    bgColor: "#FFF5EE",
+    icon: (
+      <svg viewBox="0 0 40 40" className="w-8 h-8">
+        <circle cx="20" cy="20" r="20" fill="#F27A1A"/>
+        <text x="20" y="26" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">T</text>
+      </svg>
+    )
+  },
+  { 
+    name: "Hepsiburada", 
+    color: "#FF6000", 
+    bgColor: "#FFF3E8",
+    icon: (
+      <svg viewBox="0 0 40 40" className="w-8 h-8">
+        <circle cx="20" cy="20" r="20" fill="#FF6000"/>
+        <text x="20" y="26" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">hb</text>
+      </svg>
+    )
+  },
+  { 
+    name: "Amazon", 
+    color: "#FF9900", 
+    bgColor: "#FFF8E7",
+    icon: (
+      <svg viewBox="0 0 40 40" className="w-8 h-8">
+        <circle cx="20" cy="20" r="20" fill="#232F3E"/>
+        <text x="20" y="26" textAnchor="middle" fill="#FF9900" fontSize="16" fontWeight="bold">a</text>
+      </svg>
+    )
+  },
+  { 
+    name: "N11", 
+    color: "#7B2CBF", 
+    bgColor: "#F5EEFF",
+    icon: (
+      <svg viewBox="0 0 40 40" className="w-8 h-8">
+        <circle cx="20" cy="20" r="20" fill="#7B2CBF"/>
+        <text x="20" y="26" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">n11</text>
+      </svg>
+    )
+  },
+  { 
+    name: "Çiçeksepeti", 
+    color: "#E31E52", 
+    bgColor: "#FFEBEF",
+    icon: (
+      <svg viewBox="0 0 40 40" className="w-8 h-8">
+        <circle cx="20" cy="20" r="20" fill="#E31E52"/>
+        <text x="20" y="26" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">Ç</text>
+      </svg>
+    )
+  },
+  { 
+    name: "ikas", 
+    color: "#6366F1", 
+    bgColor: "#EEEEFF",
+    icon: (
+      <svg viewBox="0 0 40 40" className="w-8 h-8">
+        <circle cx="20" cy="20" r="20" fill="#6366F1"/>
+        <text x="20" y="26" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">ikas</text>
+      </svg>
+    )
+  },
+  { 
+    name: "Shopify", 
+    color: "#96BF48", 
+    bgColor: "#F3F9E8",
+    icon: (
+      <svg viewBox="0 0 40 40" className="w-8 h-8">
+        <circle cx="20" cy="20" r="20" fill="#96BF48"/>
+        <text x="20" y="26" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">S</text>
+      </svg>
+    )
+  },
+  { 
+    name: "Etsy", 
+    color: "#F56400", 
+    bgColor: "#FFF4EB",
+    icon: (
+      <svg viewBox="0 0 40 40" className="w-8 h-8">
+        <circle cx="20" cy="20" r="20" fill="#F56400"/>
+        <text x="20" y="26" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">e</text>
+      </svg>
+    )
+  },
+  { 
+    name: "WooCommerce", 
+    color: "#96588A", 
+    bgColor: "#F8EEF6",
+    icon: (
+      <svg viewBox="0 0 40 40" className="w-8 h-8">
+        <circle cx="20" cy="20" r="20" fill="#96588A"/>
+        <text x="20" y="26" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold">W</text>
+      </svg>
+    )
+  },
+  { 
+    name: "Pazarama", 
+    color: "#00A4EF", 
+    bgColor: "#E8F7FF",
+    icon: (
+      <svg viewBox="0 0 40 40" className="w-8 h-8">
+        <circle cx="20" cy="20" r="20" fill="#00A4EF"/>
+        <text x="20" y="26" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">P</text>
+      </svg>
+    )
+  },
 ];
 
 export function PlatformsSection() {
   return (
-    <section id="platforms" className="py-24 bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground">
-            Tüm Pazaryerleriniz
-            <span className="block bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              Tek Çatı Altında
-            </span>
-          </h2>
-          <p className="text-lg text-muted-foreground">
-            En popüler e-ticaret platformlarıyla entegre çalışın
-          </p>
-        </div>
-
+    <section id="platforms" className="py-20 bg-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Platforms Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 lg:gap-6">
-          {platforms.map((platform, index) => (
+        <div className="flex flex-wrap justify-center gap-4">
+          {platforms.map((platform) => (
             <div
               key={platform.name}
-              className="group relative p-6 rounded-2xl bg-card border hover:border-primary/50 transition-all duration-300 hover:shadow-lg text-center animate-fade-in cursor-pointer"
-              style={{ animationDelay: `${index * 0.05}s` }}
+              className="flex items-center gap-3 px-5 py-3 rounded-full transition-all duration-300 hover:shadow-md cursor-default"
+              style={{ backgroundColor: platform.bgColor }}
             >
-              {/* Platform Logo/Icon */}
-              <div 
-                className="text-4xl mb-3 group-hover:scale-125 transition-transform duration-300"
-              >
-                {platform.logo}
-              </div>
-
-              {/* Platform Name */}
-              <div className="font-medium text-foreground text-sm">
+              {platform.icon}
+              <span className="font-medium text-foreground text-sm">
                 {platform.name}
-              </div>
-
-              {/* Hover Glow Effect */}
-              <div 
-                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-300"
-                style={{ backgroundColor: platform.color }}
-              />
+              </span>
             </div>
           ))}
-        </div>
-
-        {/* More Platforms Coming */}
-        <div className="text-center mt-12">
-          <p className="text-muted-foreground">
-            Ve daha fazlası... Sürekli yeni entegrasyonlar ekleniyor!
-          </p>
         </div>
       </div>
     </section>
