@@ -5,6 +5,9 @@ import { Shop } from "@/contexts/ShopContext";
 import { useListingCounts } from "@/hooks/useListingCounts";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,33 +34,82 @@ export function CopyToShopPopup({ targetPlatform, sourceShops, onClose }: CopyTo
   const [copyProgress, setCopyProgress] = useState(0);
   const [totalListings, setTotalListings] = useState(0);
   const [copiedCount, setCopiedCount] = useState(0);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const handleSelectSource = (shop: Shop) => {
     setSelectedSource(shop);
     setStep('select-method');
   };
 
-  const handleCopyMethod = (method: 'standard' | 'ai') => {
-    if (!selectedSource) return;
+  const handleCopyMethod = async (method: 'standard' | 'ai') => {
+    if (!selectedSource || !user) return;
     
-    // Simulate copying process
     setStep('copying');
-    setTotalListings(248); // Mock number
     setCopiedCount(0);
     
-    const interval = setInterval(() => {
-      setCopiedCount(prev => {
-        const next = prev + Math.floor(Math.random() * 5) + 1;
-        if (next >= 248) {
-          clearInterval(interval);
-          toast.success(`Ürünler başarıyla ${targetPlatform.name}'a kopyalandı!`);
-          setTimeout(onClose, 1000);
-          return 248;
+    try {
+      // Fetch all products from the source shop
+      const { data: sourceProducts, error: fetchError } = await supabase
+        .from('marketplace_listings')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('shop_connection_id', selectedSource.id)
+        .in('status', ['active', 'draft']);
+      
+      if (fetchError) throw fetchError;
+      
+      if (!sourceProducts || sourceProducts.length === 0) {
+        toast.error('Kaynak mağazada ürün bulunamadı');
+        onClose();
+        return;
+      }
+      
+      setTotalListings(sourceProducts.length);
+      
+      // Copy each product to the target platform
+      for (let i = 0; i < sourceProducts.length; i++) {
+        const product = sourceProducts[i];
+        const originalData = product.marketplace_data as any || {};
+        
+        // Create a copy in the target shop (inactive shop - no shop_connection_id yet)
+        const { error: insertError } = await supabase
+          .from('marketplace_listings')
+          .insert({
+            title: method === 'ai' ? `${product.title}` : product.title,
+            user_id: user.id,
+            platform: targetPlatform.id.toLowerCase(),
+            description: product.description,
+            price: product.price,
+            status: 'copy',
+            shop_connection_id: null, // Target is inactive shop
+            marketplace_data: {
+              ...originalData,
+              sku: originalData.sku ? `${originalData.sku}-${targetPlatform.id}` : null,
+              source_shop: selectedSource.name,
+            },
+          });
+        
+        if (insertError) {
+          console.error('Error copying product:', insertError);
         }
-        setCopyProgress((next / 248) * 100);
-        return next;
-      });
-    }, 100);
+        
+        setCopiedCount(i + 1);
+        setCopyProgress(((i + 1) / sourceProducts.length) * 100);
+      }
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['listing-counts'] });
+      
+      toast.success(`${sourceProducts.length} ürün ${targetPlatform.name}'a kopyalandı!`);
+      setTimeout(onClose, 1500);
+      
+    } catch (error) {
+      console.error('Copy error:', error);
+      toast.error('Kopyalama sırasında hata oluştu');
+      onClose();
+    }
   };
 
   const handleSwitchSource = (shop: Shop) => {
