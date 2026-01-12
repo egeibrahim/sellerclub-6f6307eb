@@ -168,6 +168,69 @@ export function useProducts(sourceFilter?: string) {
     },
   });
 
+  // Copy products to a specific shop or master listings
+  const copyProductToShop = useMutation({
+    mutationFn: async ({ 
+      productIds, 
+      targetShopId, 
+      targetPlatform 
+    }: { 
+      productIds: string[]; 
+      targetShopId: string | null; // null for master listings
+      targetPlatform: string;
+    }) => {
+      if (!user) throw new Error("Not authenticated");
+      
+      const results = [];
+      for (const productId of productIds) {
+        // Get the original product
+        const { data: original, error: fetchError } = await supabase
+          .from("marketplace_listings")
+          .select("*")
+          .eq("id", productId)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        if (!original) continue;
+
+        const originalData = original.marketplace_data as any || {};
+
+        // Create a copy in the target shop
+        const { data, error } = await supabase
+          .from("marketplace_listings")
+          .insert({
+            title: original.title,
+            user_id: user.id,
+            platform: targetPlatform.toLowerCase(),
+            description: original.description,
+            price: original.price,
+            status: "copy",
+            shop_connection_id: targetShopId,
+            marketplace_data: {
+              ...originalData,
+              sku: originalData.sku ? `${originalData.sku}-${targetPlatform.toLowerCase()}` : null,
+            },
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        if (data) results.push(transformToProduct(data));
+      }
+      
+      return results;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["listing-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["master-listings"] });
+      toast({ title: `${data.length} product(s) copied to shop` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const updateProduct = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Product> & { id: string }) => {
       const updateData: Record<string, unknown> = {};
@@ -371,6 +434,7 @@ export function useProducts(sourceFilter?: string) {
     error,
     createProduct,
     copyProduct,
+    copyProductToShop,
     updateProduct,
     deleteProduct,
     bulkDelete,

@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Trash2,
   Copy,
   GitMerge,
@@ -24,6 +25,14 @@ import { CopyListingDialog } from "./CopyListingDialog";
 import { PublishDropdown } from "./PublishDropdown";
 import { FileImportWizard } from "@/components/import/FileImportWizard";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -110,7 +119,7 @@ export function ProductGrid() {
   const sourceFilter = getPlatformSource(selectedShop.platform);
   const statusFilter = searchParams.get("status") || "active";
   
-  const { products, isLoading, updateProduct, deleteProduct, copyProduct, bulkDelete } = useProducts(sourceFilter);
+  const { products, isLoading, updateProduct, deleteProduct, copyProduct, copyProductToShop, bulkDelete } = useProducts(sourceFilter);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
@@ -123,6 +132,13 @@ export function ProductGrid() {
 
   // Get shop connections for copy dialog
   const { shops } = useShop();
+  
+  // All available shops for copy dropdown (including master and all connected shops)
+  const copyTargetShops = [
+    { id: 'master', name: 'Master Listings', platform: 'master', icon: 'M', color: '#8B5CF6', isConnected: true },
+    ...shops.filter(s => s.id !== 'master'),
+  ];
+  
   const shopConnections = shops.filter(s => s.id !== 'master').map(shop => ({
     id: shop.id,
     shop_name: shop.name,
@@ -215,7 +231,19 @@ export function ProductGrid() {
   const handleCopy = async (e: React.MouseEvent, productId: string) => {
     e.stopPropagation();
     await copyProduct.mutateAsync(productId);
-    toast.success("Product copied to Copy section");
+  };
+
+  const handleCopyToShop = async (targetShop: typeof copyTargetShops[0]) => {
+    const productIds = Array.from(selectedIds);
+    if (productIds.length === 0) return;
+    
+    await copyProductToShop.mutateAsync({
+      productIds,
+      targetShopId: targetShop.id === 'master' ? null : targetShop.id,
+      targetPlatform: targetShop.platform,
+    });
+    clearSelection();
+    toast.success(`${productIds.length} ürün ${targetShop.name}'e kopyalandı`);
   };
 
   const handleMerge = (e: React.MouseEvent, productId: string) => {
@@ -328,20 +356,64 @@ export function ProductGrid() {
                 <Trash2 className="h-4 w-4" />
                 Delete
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 gap-2"
-                onClick={async () => {
-                  for (const id of Array.from(selectedIds)) {
-                    await copyProduct.mutateAsync(id);
-                  }
-                  toast.success(`${selectedIds.size} ürün Copy bölümüne kopyalandı`);
-                }}
-              >
-                <Copy className="h-4 w-4" />
-                Copy
-              </Button>
+              {/* Copy Dropdown with shop selection */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1 pr-2"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copy
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-background border shadow-lg z-50">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    Copy {selectedIds.size} product(s) to
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  
+                  {/* Same shop (Copy section) */}
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      for (const id of Array.from(selectedIds)) {
+                        await copyProduct.mutateAsync(id);
+                      }
+                      clearSelection();
+                    }}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <div 
+                      className="w-6 h-6 rounded flex items-center justify-center text-white font-bold text-xs"
+                      style={{ backgroundColor: selectedShop.color }}
+                    >
+                      {selectedShop.icon}
+                    </div>
+                    <span className="text-sm">Same Shop (Copy)</span>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  
+                  {/* Other shops */}
+                  {copyTargetShops.filter(s => s.id !== selectedShop.id && s.id !== `inactive-${selectedShop.platform.toLowerCase()}`).map((shop) => (
+                    <DropdownMenuItem
+                      key={shop.id}
+                      onClick={() => handleCopyToShop(shop)}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <div 
+                        className="w-6 h-6 rounded flex items-center justify-center text-white font-bold text-xs"
+                        style={{ backgroundColor: shop.color }}
+                      >
+                        {shop.icon}
+                      </div>
+                      <span className="text-sm">{shop.name}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 size="sm"
                 className="h-9 gap-2"
