@@ -7,7 +7,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Package,
   Search,
   RefreshCw,
   ChevronLeft,
@@ -17,8 +16,8 @@ import {
   GitMerge,
   ExternalLink,
   Upload,
+  Package,
 } from "lucide-react";
-import { BulkActionBar } from "./BulkActionBar";
 import { ProductSidePanel } from "./ProductSidePanel";
 import { ShopRefreshDialog } from "./ShopRefreshDialog";
 import { CopyListingDialog } from "./CopyListingDialog";
@@ -111,7 +110,7 @@ export function ProductGrid() {
   const sourceFilter = getPlatformSource(selectedShop.platform);
   const statusFilter = searchParams.get("status") || "active";
   
-  const { products, isLoading, updateProduct, deleteProduct, copyProduct } = useProducts(sourceFilter);
+  const { products, isLoading, updateProduct, deleteProduct, copyProduct, bulkDelete } = useProducts(sourceFilter);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
@@ -270,59 +269,130 @@ export function ProductGrid() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header Bar - changes when items are selected */}
-      {selectedIds.size > 0 ? (
-        <BulkActionBar
-          selectedCount={selectedIds.size}
-          selectedIds={Array.from(selectedIds)}
-          onClear={clearSelection}
-        />
-      ) : (
-        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-background">
+      {/* Single Header Bar */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background">
+        {/* Left: Shop info + Status */}
+        <div className="flex items-center gap-4">
+          {/* Shop Icon and Name */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 border border-border flex items-center justify-center">
-                <Package className="h-3 w-3 text-muted-foreground" />
-              </div>
-              <h1 className="text-lg font-semibold text-foreground">{getStatusLabel()}</h1>
-              <span className="text-muted-foreground text-sm">({filteredProducts.length})</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleShopRefresh}
-              disabled={selectedShop.platform !== "Trendyol" || isSyncing}
-              title={
-                selectedShop.platform === "Trendyol"
-                  ? "Mağazayı yenile"
-                  : "Bu mağaza için yenileme yok"
-              }
+            <div 
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+              style={{ backgroundColor: selectedShop.color }}
             >
-              <RefreshCw
-                className={cn(
-                  "h-4 w-4 text-muted-foreground",
-                  isSyncing && "animate-spin"
+              {selectedShop.icon}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-semibold text-foreground">{selectedShop.name}</h1>
+                {selectedShop.isConnected && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 font-medium">
+                    Connected
+                  </span>
                 )}
-              />
-            </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">{selectedShop.platform}</p>
+            </div>
           </div>
 
+          {/* Divider */}
+          <div className="h-8 w-px bg-border" />
+
+          {/* Status */}
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Search className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="outline" 
-              className="h-9 gap-2"
-              onClick={() => setShowImportWizard(true)}
-            >
-              <Upload className="h-4 w-4" />
-              Import
-            </Button>
+            <span className="text-sm font-medium text-foreground">{getStatusLabel()}</span>
+            <span className="text-sm text-muted-foreground">({filteredProducts.length})</span>
+            {selectedIds.size > 0 && (
+              <span className="text-sm text-primary font-medium ml-2">
+                {selectedIds.size} selected
+              </span>
+            )}
           </div>
         </div>
-      )}
+
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 ? (
+            <>
+              {/* Bulk Actions when selected */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2"
+                onClick={() => {
+                  if (confirm(`Are you sure you want to delete ${selectedIds.size} products?`)) {
+                    bulkDelete.mutate(Array.from(selectedIds));
+                    clearSelection();
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2"
+                onClick={async () => {
+                  for (const id of Array.from(selectedIds)) {
+                    await copyProduct.mutateAsync(id);
+                  }
+                  toast.success(`${selectedIds.size} ürün Copy bölümüne kopyalandı`);
+                }}
+              >
+                <Copy className="h-4 w-4" />
+                Copy
+              </Button>
+              <Button
+                size="sm"
+                className="h-9 gap-2"
+                onClick={() => navigate(`/inventory/bulk-edit?ids=${Array.from(selectedIds).join(",")}`)}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 text-muted-foreground"
+                onClick={clearSelection}
+              >
+                Clear
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* Normal Actions */}
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <Search className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                className="h-9 gap-2"
+                onClick={() => setShowImportWizard(true)}
+              >
+                <Upload className="h-4 w-4" />
+                Import
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 gap-2"
+                onClick={handleShopRefresh}
+                disabled={selectedShop.platform !== "Trendyol" || isSyncing}
+              >
+                <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+                Sync
+              </Button>
+              <Button 
+                className="h-9 gap-2"
+                style={{ backgroundColor: selectedShop.color }}
+                onClick={() => navigate(selectedShop.listingRoute)}
+              >
+                <span className="text-white">+ Create listing</span>
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
