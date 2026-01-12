@@ -1,26 +1,19 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useProducts } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useShop } from "@/contexts/ShopContext";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
-  X, DollarSign, Package, Trash2, Send, ImagePlus, Loader2, Edit, 
-  Copy, Archive, Download, ChevronDown, MinusCircle 
+  Trash2, Loader2, Edit, Copy, Download, ChevronDown, Search
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,52 +21,27 @@ interface BulkActionBarProps {
   selectedCount: number;
   selectedIds: string[];
   onClear: () => void;
-  onCopy?: () => void;
-  currentStatus?: string;
+  onSearch?: () => void;
 }
 
 export function BulkActionBar({ 
   selectedCount, 
   selectedIds, 
   onClear,
-  onCopy,
-  currentStatus = 'active'
+  onSearch,
 }: BulkActionBarProps) {
   const navigate = useNavigate();
-  const { bulkDelete, bulkUpdatePrice, bulkUpdateStock, bulkAddImages } = useProducts();
-  const { user } = useAuth();
-  const [priceAdjustment, setPriceAdjustment] = useState("");
-  const [isPercentage, setIsPercentage] = useState(true);
-  const [stockAdjustment, setStockAdjustment] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
+  const { bulkDelete, copyProduct } = useProducts();
+  const { shops, selectedShop } = useShop();
+  const queryClient = useQueryClient();
   const [isExporting, setIsExporting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isCopying, setIsCopying] = useState(false);
+
+  // Get connected shops for copy dropdown
+  const connectedShops = shops.filter(s => s.id !== 'master' && s.isConnected);
 
   const handleBulkEdit = () => {
     navigate(`/inventory/bulk-edit?ids=${selectedIds.join(",")}`);
-  };
-
-  const handlePriceUpdate = () => {
-    const adjustment = Number(priceAdjustment);
-    if (isNaN(adjustment)) return;
-    
-    bulkUpdatePrice.mutate({
-      ids: selectedIds,
-      adjustment,
-      isPercentage,
-    });
-    setPriceAdjustment("");
-  };
-
-  const handleStockUpdate = () => {
-    const adjustment = Number(stockAdjustment);
-    if (isNaN(adjustment)) return;
-    
-    bulkUpdateStock.mutate({
-      ids: selectedIds,
-      adjustment,
-    });
-    setStockAdjustment("");
   };
 
   const handleDelete = () => {
@@ -83,39 +51,7 @@ export function BulkActionBar({
     }
   };
 
-  const handleInactive = async () => {
-    try {
-      const { error } = await supabase
-        .from('marketplace_listings')
-        .update({ status: 'inactive' })
-        .in('id', selectedIds);
-
-      if (error) throw error;
-
-      toast.success(`${selectedCount} ürün pasif yapıldı`);
-      onClear();
-    } catch (error: any) {
-      toast.error(error.message || 'Hata oluştu');
-    }
-  };
-
-  const handleArchive = async () => {
-    try {
-      const { error } = await supabase
-        .from('marketplace_listings')
-        .update({ status: 'archived' })
-        .in('id', selectedIds);
-
-      if (error) throw error;
-
-      toast.success(`${selectedCount} ürün arşivlendi`);
-      onClear();
-    } catch (error: any) {
-      toast.error(error.message || 'Hata oluştu');
-    }
-  };
-
-  const handleExport = async (format: 'csv' | 'excel') => {
+  const handleExport = async () => {
     setIsExporting(true);
     try {
       const { data, error } = await supabase
@@ -162,263 +98,117 @@ export function BulkActionBar({
     }
   };
 
-  const handleBulkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !user) return;
-
-    setIsUploading(true);
-    const uploadedUrls: string[] = [];
-
+  const handleCopyToShop = async (targetShopId: string) => {
+    setIsCopying(true);
     try {
-      for (const file of Array.from(files)) {
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error(`${file.name} is too large. Max 5MB.`);
-          continue;
-        }
-
-        if (!file.type.startsWith("image/")) {
-          toast.error(`${file.name} is not an image.`);
-          continue;
-        }
-
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${user.id}/bulk-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("listing-images")
-          .upload(fileName, file);
-
-        if (uploadError) {
-          toast.error(`Failed to upload ${file.name}`);
-          continue;
-        }
-
-        const { data: urlData } = supabase.storage
-          .from("listing-images")
-          .getPublicUrl(fileName);
-
-        uploadedUrls.push(urlData.publicUrl);
+      // Copy each selected product
+      for (const id of selectedIds) {
+        await copyProduct.mutateAsync(id);
       }
-
-      if (uploadedUrls.length > 0) {
-        bulkAddImages.mutate({
-          ids: selectedIds,
-          imageUrls: uploadedUrls,
-        });
-        toast.success(`${uploadedUrls.length} images added to ${selectedIds.length} products`);
-      }
-    } catch (error) {
-      toast.error("Failed to upload images");
+      
+      queryClient.invalidateQueries({ queryKey: ["listing-counts"] });
+      toast.success(`${selectedCount} ürün Copy bölümüne kopyalandı`);
+    } catch (error: any) {
+      toast.error(error.message || 'Kopyalama hatası');
     } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      setIsCopying(false);
     }
   };
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 ml-30 z-50">
-      <div className="bg-foreground text-background px-4 py-3 flex items-center gap-3 shadow-lg rounded-lg">
-        <span className="text-sm font-medium">
-          {selectedCount} selected
-        </span>
+    <div className="flex items-center gap-2 px-6 py-3 border-b border-border bg-background">
+      {/* Left: Status indicator */}
+      <div className="flex items-center gap-2">
+        <div className="w-5 h-5 border border-muted-foreground/30 flex items-center justify-center">
+          <div className="w-3 h-1 bg-muted-foreground/50" />
+        </div>
+        <span className="text-sm font-medium">Active</span>
+        <span className="text-sm text-muted-foreground">{selectedCount} selected</span>
+      </div>
 
-        <div className="h-4 w-px bg-background/20" />
+      <div className="flex-1" />
 
-        {/* Copy Dropdown */}
+      {/* Right: Action buttons */}
+      <div className="flex items-center gap-2">
+        {/* Search */}
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className="text-background hover:bg-background/10 gap-2"
-          onClick={onCopy}
+          className="h-9 w-9 p-0"
+          onClick={onSearch}
         >
-          <Copy className="h-4 w-4" />
-          Copy
-        </Button>
-
-        {/* Price Update */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-background hover:bg-background/10 gap-2"
-            >
-              <DollarSign className="h-4 w-4" />
-              Price
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64" align="center">
-            <div className="space-y-3">
-              <Label>Price Adjustment</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  value={priceAdjustment}
-                  onChange={(e) => setPriceAdjustment(e.target.value)}
-                  placeholder={isPercentage ? "10" : "50"}
-                  className="flex-1"
-                />
-                <Button
-                  variant={isPercentage ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setIsPercentage(true)}
-                >
-                  %
-                </Button>
-                <Button
-                  variant={!isPercentage ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setIsPercentage(false)}
-                >
-                  ₺
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Enter positive to increase, negative to decrease
-              </p>
-              <Button onClick={handlePriceUpdate} className="w-full" size="sm">
-                Apply
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        {/* Stock Update */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-background hover:bg-background/10 gap-2"
-            >
-              <Package className="h-4 w-4" />
-              Stock
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64" align="center">
-            <div className="space-y-3">
-              <Label>Stock Adjustment</Label>
-              <Input
-                type="number"
-                value={stockAdjustment}
-                onChange={(e) => setStockAdjustment(e.target.value)}
-                placeholder="+10 or -5"
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter positive to add, negative to subtract
-              </p>
-              <Button onClick={handleStockUpdate} className="w-full" size="sm">
-                Apply
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        {/* Bulk Edit */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-background hover:bg-background/10 gap-2"
-          onClick={handleBulkEdit}
-        >
-          <Edit className="h-4 w-4" />
-          Edit
-        </Button>
-
-        {/* Export Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-background hover:bg-background/10 gap-1"
-              disabled={isExporting}
-            >
-              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Export
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => handleExport('csv')}>
-              Export as CSV
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('excel')}>
-              Export as Excel
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Bulk Image Upload */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-background hover:bg-background/10 gap-2"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-        >
-          {isUploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <ImagePlus className="h-4 w-4" />
-          )}
-          Images
-        </Button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleBulkImageUpload}
-          className="hidden"
-        />
-
-        <div className="h-4 w-px bg-background/20" />
-
-        {/* Archive */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-background hover:bg-background/10 gap-2"
-          onClick={handleArchive}
-        >
-          <Archive className="h-4 w-4" />
-          Archive
-        </Button>
-
-        {/* Inactive */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-yellow-400 hover:bg-yellow-400/10 gap-2"
-          onClick={handleInactive}
-        >
-          <MinusCircle className="h-4 w-4" />
-          Inactive
+          <Search className="h-4 w-4" />
         </Button>
 
         {/* Delete */}
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className="text-destructive hover:bg-destructive/10 gap-2"
+          className="h-9 gap-2"
           onClick={handleDelete}
         >
           <Trash2 className="h-4 w-4" />
           Delete
         </Button>
 
-        {/* Clear Selection */}
+        {/* Export */}
         <Button
-          variant="ghost"
-          size="icon"
-          className="text-background hover:bg-background/10"
-          onClick={onClear}
+          variant="outline"
+          size="sm"
+          className="h-9 gap-2"
+          onClick={handleExport}
+          disabled={isExporting}
         >
-          <X className="h-4 w-4" />
+          {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          Export
+        </Button>
+
+        {/* Copy Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-2"
+              disabled={isCopying}
+            >
+              {isCopying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+              Copy
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {connectedShops.map((shop) => (
+              <DropdownMenuItem 
+                key={shop.id}
+                onClick={() => handleCopyToShop(shop.id)}
+                className="flex items-center gap-2"
+              >
+                <div 
+                  className="w-5 h-5 rounded flex items-center justify-center text-white text-xs font-bold"
+                  style={{ backgroundColor: shop.color }}
+                >
+                  {shop.icon}
+                </div>
+                <span>{shop.name}</span>
+              </DropdownMenuItem>
+            ))}
+            {connectedShops.length === 0 && (
+              <DropdownMenuItem disabled>
+                <span className="text-muted-foreground">No shops connected</span>
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Edit Button */}
+        <Button
+          size="sm"
+          className="h-9 gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={handleBulkEdit}
+        >
+          <Edit className="h-4 w-4" />
+          Edit
         </Button>
       </div>
     </div>
