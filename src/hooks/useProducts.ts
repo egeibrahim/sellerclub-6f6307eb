@@ -136,7 +136,7 @@ export function useProducts(sourceFilter?: string) {
 
       const originalData = original.marketplace_data as any || {};
 
-      // Create a copy with status 'copy'
+      // Create a copy with status 'copy' - keep same shop_connection_id
       const { data, error } = await supabase
         .from("marketplace_listings")
         .insert({
@@ -146,6 +146,7 @@ export function useProducts(sourceFilter?: string) {
           description: original.description,
           price: original.price,
           status: "copy",
+          shop_connection_id: original.shop_connection_id,
           marketplace_data: {
             ...originalData,
             sku: originalData.sku ? `${originalData.sku}-copy` : null,
@@ -159,7 +160,8 @@ export function useProducts(sourceFilter?: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast({ title: "Product copied" });
+      queryClient.invalidateQueries({ queryKey: ["listing-counts"] });
+      toast({ title: "Product copied to Copy section" });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });

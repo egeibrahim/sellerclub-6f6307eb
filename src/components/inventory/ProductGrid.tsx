@@ -10,15 +10,12 @@ import {
   Package,
   Search,
   RefreshCw,
-  Download,
-  Plus,
   ChevronLeft,
   ChevronRight,
   Trash2,
   Copy,
   GitMerge,
   ExternalLink,
-  Send,
   Upload,
 } from "lucide-react";
 import { BulkActionBar } from "./BulkActionBar";
@@ -273,58 +270,59 @@ export function ProductGrid() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header Bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 border border-border flex items-center justify-center">
-              <Package className="h-4 w-4 text-muted-foreground" />
+      {/* Header Bar - changes when items are selected */}
+      {selectedIds.size > 0 ? (
+        <BulkActionBar
+          selectedCount={selectedIds.size}
+          selectedIds={Array.from(selectedIds)}
+          onClear={clearSelection}
+        />
+      ) : (
+        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-background">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 border border-border flex items-center justify-center">
+                <Package className="h-3 w-3 text-muted-foreground" />
+              </div>
+              <h1 className="text-lg font-semibold text-foreground">{getStatusLabel()}</h1>
+              <span className="text-muted-foreground text-sm">({filteredProducts.length})</span>
             </div>
-            <h1 className="text-xl font-semibold text-foreground">{getStatusLabel()}</h1>
-            <span className="text-muted-foreground">({filteredProducts.length})</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleShopRefresh}
+              disabled={selectedShop.platform !== "Trendyol" || isSyncing}
+              title={
+                selectedShop.platform === "Trendyol"
+                  ? "Mağazayı yenile"
+                  : "Bu mağaza için yenileme yok"
+              }
+            >
+              <RefreshCw
+                className={cn(
+                  "h-4 w-4 text-muted-foreground",
+                  isSyncing && "animate-spin"
+                )}
+              />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={handleShopRefresh}
-            disabled={selectedShop.platform !== "Trendyol" || isSyncing}
-            title={
-              selectedShop.platform === "Trendyol"
-                ? "Mağazayı yenile"
-                : "Bu mağaza için yenileme yok"
-            }
-          >
-            <RefreshCw
-              className={cn(
-                "h-4 w-4 text-muted-foreground",
-                isSyncing && "animate-spin"
-              )}
-            />
-          </Button>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="h-9 w-9">
-            <Search className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="outline" 
-            className="h-9 gap-2"
-            onClick={() => setShowImportWizard(true)}
-          >
-            <Upload className="h-4 w-4" />
-            Import
-          </Button>
-          <Button 
-            className="h-9 gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => navigate(selectedShop.listingRoute)}
-          >
-            <Plus className="h-4 w-4" />
-            Create listing
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-9 gap-2"
+              onClick={() => setShowImportWizard(true)}
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
@@ -588,17 +586,6 @@ export function ProductGrid() {
             Viewing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
           </span>
         </div>
-      )}
-
-      {/* Bulk Action Bar */}
-      {selectedIds.size > 0 && (
-        <BulkActionBar
-          selectedCount={selectedIds.size}
-          selectedIds={Array.from(selectedIds)}
-          onClear={clearSelection}
-          onCopy={() => setShowCopyDialog(true)}
-          currentStatus={statusFilter}
-        />
       )}
 
       {/* Copy Dialog */}
