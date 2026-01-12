@@ -84,39 +84,13 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
         className="flex-1" 
         style={{ marginLeft: showVelaSidebar ? '17.5rem' : '3.5rem' }}
       >
-        {/* Shop Header - Only for connected shops */}
-        {showHeader && !isMasterView && selectedShopConnection && showVelaSidebar && (
-          <>
-            <ShopHeader
-              shop={selectedShopConnection}
-              onSync={handleSync}
-              onManageConnection={handleOpenConnectDialog}
-              isSyncing={isSyncing}
-              listingRoute={selectedShop.listingRoute}
-            />
-            {!selectedShopConnection.is_connected && (
-              <ConnectBanner
-                platform={selectedShop.platform}
-                platformColor={selectedShop.color}
-                onConnect={handleOpenConnectDialog}
-              />
-            )}
-          </>
-        )}
-
-        {/* Master View Header */}
-        {showHeader && isMasterView && showVelaSidebar && (
-          <div className="flex items-center justify-between p-4 border-b border-border bg-background">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold">
-                M
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold">Master Ürünler</h1>
-                <p className="text-xs text-muted-foreground">Merkezi ürün yönetimi</p>
-              </div>
-            </div>
-          </div>
+        {/* Connect Banner - Only for unconnected shops */}
+        {showHeader && !isMasterView && selectedShopConnection && showVelaSidebar && !selectedShopConnection.is_connected && (
+          <ConnectBanner
+            platform={selectedShop.platform}
+            platformColor={selectedShop.color}
+            onConnect={handleOpenConnectDialog}
+          />
         )}
 
         {children}
